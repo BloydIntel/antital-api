@@ -1,0 +1,89 @@
+version: '3.4'
+
+services:
+
+  antitaldb:
+    # Using Azure SQL Edge for ARM64 Mac compatibility (or use platform: linux/amd64 for x86 emulation)
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    platform: linux/amd64  # Required for ARM Mac compatibility
+
+  antital.api:
+    image: ${DOCKER_REGISTRY-}antitalapi
+    build:
+      context: .
+      dockerfile: Antital.API/Dockerfile
+
+  # ============================================
+  # WORKER SERVICES - COMMENTED FOR MINIMAL SETUP
+  # ============================================
+  # antitalworkerdb:
+  #   image: postgres
+
+  # antital.worker.api1:
+  #   image: ${DOCKER_REGISTRY-}antitalworkerapi
+  #   build:
+  #     context: .
+  #     dockerfile: Antital.Worker.API/Dockerfile
+
+  # antital.worker.api2:
+  #   image: ${DOCKER_REGISTRY-}antitalworkerapi
+  #   build:
+  #     context: .
+  #     dockerfile: Antital.Worker.API/Dockerfile
+
+  # antital.worker.api3:
+  #   image: ${DOCKER_REGISTRY-}antitalworkerapi
+  #   build:
+  #     context: .
+  #     dockerfile: Antital.Worker.API/Dockerfile
+
+  # antital.worker.loadbalancer:
+  #   image: ${DOCKER_REGISTRY-}antitalworkerloadbalancer
+  #   build:
+  #     context: .
+  #     dockerfile: Antital.Worker.LoadBalancer/Dockerfile
+
+  # ============================================
+  # MONITORING - COMMENTED FOR MINIMAL SETUP
+  # ============================================
+  # prometheus:
+  #   image: prom/prometheus
+
+  # grafana:
+  #   image: grafana/grafana
+
+  # ============================================
+  # CACHING & MESSAGING - COMMENTED FOR MINIMAL SETUP
+  # ============================================
+  # redis:
+  #   image: redis/redis-stack
+
+  # rabbitmq:
+  #   image: rabbitmq:management
+
+  # ============================================
+  # SEARCH & LOGGING - COMMENTED FOR MINIMAL SETUP
+  # ============================================
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:8.14.3
+
+  # ============================================
+  # DATABASE MANAGEMENT - COMMENTED FOR MINIMAL SETUP
+  # ============================================
+  # pgadmin:
+  #   image: dpage/pgadmin4
+
+  # ============================================
+  # DOCKER MANAGEMENT - COMMENTED FOR MINIMAL SETUP
+  # ============================================
+  # portainer:
+  #   image: portainer/portainer-ce
+
+volumes:
+  portainer_data:
+  postgres_data:
+  pgadmin_data:
+  elasticsearch-data:

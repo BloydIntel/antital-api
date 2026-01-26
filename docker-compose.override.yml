@@ -1,0 +1,255 @@
+version: '3.4'
+
+services:
+
+  antitaldb:
+    container_name: antitaldb
+    platform: linux/amd64  # Required for ARM Mac compatibility
+    environment:
+      - SA_PASSWORD=Admin1234!!
+      - ACCEPT_EULA=Y
+      - MSSQL_PID=Developer  # Azure SQL Edge requires this
+    restart: always
+    ports:
+      - 8600:1433
+    networks:
+      - antital_network
+
+  antital.api:
+    container_name: antital.api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8001
+      - ConnectionStrings:DefaultConnection=Server=antitaldb;Database=AntitalDB;User Id=sa;Password=Admin1234!!;TrustServerCertificate=True;
+      # Connect antitaldb in SSMS using IpConfig -> Ethernet adapter vEthernet (WSL) -> Ip V4
+      # - ConnectionStrings:RedisConnection=redis:6379,defaultdatabase=11  # COMMENTED: Enable when you need Redis
+      # Check redis content -> docker exec -it redis redis-cli
+      - HealthCheck:Uri=http://antital.api:8001/healthz
+      # - RabbitMQSettings:HostName=rabbitmq  # COMMENTED: Enable when you need RabbitMQ
+      # - RabbitMQSettings:UserName=user
+      # - RabbitMQSettings:Password=password
+    ports:
+      - "18001:8001"
+    depends_on:
+      - antitaldb
+      # - rabbitmq  # COMMENTED: Enable when you need RabbitMQ
+    # volumes:
+    #   - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro  # Windows only - commented for Mac
+    #   - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro  # Windows only - commented for Mac
+    networks:
+      - antital_network
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    # Health check and retry is for this purpose:
+    # RabbitMQ and Sender (Antital.Worker) should start first. Then Antital is able to be up...
+
+  # ============================================
+  # WORKER SERVICES (PostgreSQL + Worker APIs + Load Balancer)
+  # COMMENTED OUT FOR MINIMAL SETUP - Enable when needed
+  # ============================================
+  # antitalworkerdb:
+  #   container_name: antitalworkerdb
+  #   environment:
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=Admin1234
+  #     - POSTGRES_DB=antitalworkerdb
+  #   restart: always
+  #   ports:
+  #     - 5432:5432
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data/
+  #   networks:
+  #     - antital_network
+
+  # antital.worker.api1:
+  #   container_name: antital.worker.api1
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ASPNETCORE_HTTP_PORTS=8002
+  #     - ConnectionStrings:DefaultConnection=Server=antitalworkerdb;Port=5432;Database=antitalworkerdb;User Id=postgres;Password=Admin1234
+  #     - RabbitMQSettings:HostName=rabbitmq
+  #     - RabbitMQSettings:UserName=user
+  #     - RabbitMQSettings:Password=password
+  #   depends_on:
+  #     - antitalworkerdb
+  #     - rabbitmq
+  #   ports:
+  #     - 8002:8002
+  #   networks:
+  #     - antital_network
+
+  # antital.worker.api2:
+  #   container_name: antital.worker.api2
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ASPNETCORE_HTTP_PORTS=8002
+  #     - ConnectionStrings:DefaultConnection=Server=antitalworkerdb;Port=5432;Database=antitalworkerdb;User Id=postgres;Password=Admin1234
+  #     - RabbitMQSettings:HostName=rabbitmq
+  #     - RabbitMQSettings:UserName=user
+  #     - RabbitMQSettings:Password=password
+  #   depends_on:
+  #     - antitalworkerdb
+  #     - rabbitmq
+  #   ports:
+  #     - 8003:8002
+  #   networks:
+  #     - antital_network
+
+  # antital.worker.api3:
+  #   container_name: antital.worker.api3
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ASPNETCORE_HTTP_PORTS=8002
+  #     - ConnectionStrings:DefaultConnection=Server=antitalworkerdb;Port=5432;Database=antitalworkerdb;User Id=postgres;Password=Admin1234
+  #     - RabbitMQSettings:HostName=rabbitmq
+  #     - RabbitMQSettings:UserName=user
+  #     - RabbitMQSettings:Password=password
+  #   depends_on:
+  #     - antitalworkerdb
+  #     - rabbitmq
+  #   ports:
+  #     - 8004:8002
+  #   networks:
+  #     - antital_network
+
+  # antital.worker.loadbalancer:
+  #   container_name: antital.worker.loadbalancer
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ASPNETCORE_HTTP_PORTS=8010
+  #     - ReverseProxy:Routes:api-route:ClusterId=api-cluster
+  #     - ReverseProxy:Routes:api-route:Match:Path={**catch-all}
+  #     - ReverseProxy:Clusters:api-cluster:LoadBalancingPolicy=RoundRobin
+  #     - ReverseProxy:Clusters:api-cluster:HealthCheck:Active:Enabled=true
+  #     - ReverseProxy:Clusters:api-cluster:HealthCheck:Active:Interval=00:00:05
+  #     - ReverseProxy:Clusters:api-cluster:HealthCheck:Active:Timeout=00:00:05
+  #     - ReverseProxy:Clusters:api-cluster:HealthCheck:Active:Policy=ConsecutiveFailures
+  #     - ReverseProxy:Clusters:api-cluster:HealthCheck:Active:Path=/healthz
+  #     - ReverseProxy:Clusters:api-cluster:Destinations:destination1:Address=http://antital.worker.api1:8002
+  #     - ReverseProxy:Clusters:api-cluster:Destinations:destination1:Health:Active=http://antital.worker.api1:8002/healthz
+  #     - ReverseProxy:Clusters:api-cluster:Destinations:destination2:Address=http://antital.worker.api2:8002
+  #     - ReverseProxy:Clusters:api-cluster:Destinations:destination2:Health:Active=http://antital.worker.api2:8002/healthz
+  #     - ReverseProxy:Clusters:api-cluster:Destinations:destination3:Address=http://antital.worker.api3:8002
+  #     - ReverseProxy:Clusters:api-cluster:Destinations:destination3:Health:Active=http://antital.worker.api3:8002/healthz
+  #   ports:
+  #     - 8010:8010
+  #   networks:
+  #     - antital_network
+
+  # ============================================
+  # MONITORING & OBSERVABILITY
+  # COMMENTED OUT FOR MINIMAL SETUP - Enable when needed
+  # ============================================
+  # prometheus:
+  #   container_name: prometheus
+  #   volumes:
+  #     - ./Monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+  #   ports:
+  #     - "9090:9090"
+  #   depends_on:
+  #     - antital.api
+  #   networks:
+  #     - antital_network
+
+  # grafana:
+  #   container_name: grafana
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   ports:
+  #     - "3700:3000"
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - antital_network
+
+  # ============================================
+  # CACHING & MESSAGING
+  # COMMENTED OUT FOR MINIMAL SETUP - Enable when needed
+  # ============================================
+  # redis:
+  #   container_name: redis
+  #   ports:
+  #     - "6379:6379"
+  #     - "9101:8001"
+  #   networks:
+  #     - antital_network
+
+  # rabbitmq:
+  #   container_name: rabbitmq
+  #   ports:
+  #     - "5672:5672"
+  #     - "15672:15672"
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: user
+  #     RABBITMQ_DEFAULT_PASS: password
+  #   networks:
+  #     - antital_network
+
+  # ============================================
+  # SEARCH & LOGGING (Elasticsearch/Kibana)
+  # COMMENTED OUT FOR MINIMAL SETUP - Enable when needed
+  # ============================================
+  # elasticsearch:
+  #   container_name: elasticsearch
+  #   volumes:
+  #     - elasticsearch-data:/usr/share/elasticsearch/data
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false
+  #   ports:
+  #     - "9200:9200"
+  #     - "9300:9300"
+  #   networks:
+  #     - antital_network
+  #   # not working !
+
+  # kibana:
+  #   container_name: kibana
+  #   environment:
+  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
+  #     - XPACK_SECURITY_ENABLED=false
+  #   ports:
+  #     - "15601:5601"
+  #   depends_on:
+  #     - elasticsearch
+  #   networks:
+  #     - antital_network
+  #   # not working !
+
+  # ============================================
+  # DATABASE MANAGEMENT TOOLS
+  # COMMENTED OUT FOR MINIMAL SETUP - Enable when needed
+  # ============================================
+  # pgadmin:
+  #   container_name: pgadmin
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=behzad@dara.com
+  #     - PGADMIN_DEFAULT_PASSWORD=admin1234
+  #   restart: always
+  #   ports:
+  #     - 5050:80
+  #   volumes:
+  #     - pgadmin_data:/root/.pgadmin
+  #   networks:
+  #     - antital_network
+
+  # ============================================
+  # DOCKER MANAGEMENT TOOLS
+  # COMMENTED OUT FOR MINIMAL SETUP - Enable when needed
+  # ============================================
+  # portainer:
+  #   container_name: portainer
+  #   restart: always
+  #   ports:
+  #     - 9000:9000
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - portainer_data:/data
+  #   networks:
+  #     - antital_network
+
+networks:
+  antital_network:
+    driver: bridge
