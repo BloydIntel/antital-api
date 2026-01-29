@@ -29,6 +29,11 @@ public class UserRepository(
             .FirstOrDefaultAsync(u => u.RefreshTokenHash == refreshTokenHash && !u.IsDeleted, cancellationToken);
     }
 
+    public new async Task<IReadOnlyList<User>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return await SetAsNoTracking.Where(u => !u.IsDeleted).ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken)
     {
         return await SetAsNoTracking

@@ -8,6 +8,7 @@ using Antital.Application.Features.Authentication.SignUp;
 using Antital.Application.Features.Authentication.VerifyEmail;
 using Antital.Application.Features.Authentication.ForgotPassword;
 using Antital.Application.Features.Authentication.ResetPassword;
+using Antital.Application.Features.Authentication.ResendVerificationEmail;
 using Antital.Domain.Enums;
 using Antital.Domain.Models;
 using Antital.Infrastructure;
@@ -805,6 +806,92 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
 
         // Assert
         loginResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ResendVerification_UnverifiedUser_Returns200AndUpdatesToken()
+    {
+        // Arrange
+        var user = new User
+        {
+            Email = "resend@example.com",
+            PasswordHash = "hashed",
+            UserType = UserTypeEnum.IndividualInvestor,
+            IsEmailVerified = false,
+            EmailVerificationToken = "old-token",
+            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(-1),
+            FirstName = "Resend",
+            LastName = "User",
+            PhoneNumber = "+2348012345678",
+            DateOfBirth = new DateTime(1990, 1, 1),
+            Nationality = "Nigerian",
+            CountryOfResidence = "Nigeria",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "123 Main Street",
+            HasAgreedToTerms = true
+        };
+        user.Created("System");
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var command = new ResendVerificationEmailCommand("resend@example.com");
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/auth/resend-verification", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _context.ChangeTracker.Clear();
+        var updatedUser = await _context.Users.AsNoTracking().FirstAsync(u => u.Email == command.Email);
+        updatedUser.EmailVerificationToken.Should().NotBe("old-token");
+        updatedUser.EmailVerificationTokenExpiry.Should().NotBeNull();
+        updatedUser.EmailVerificationTokenExpiry!.Value.Should().BeAfter(DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task ResendVerification_AlreadyVerified_Returns400()
+    {
+        // Arrange
+        var user = new User
+        {
+            Email = "verified@example.com",
+            PasswordHash = "hashed",
+            UserType = UserTypeEnum.IndividualInvestor,
+            IsEmailVerified = true,
+            FirstName = "Verified",
+            LastName = "User",
+            PhoneNumber = "+2348012345678",
+            DateOfBirth = new DateTime(1990, 1, 1),
+            Nationality = "Nigerian",
+            CountryOfResidence = "Nigeria",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "123 Main Street",
+            HasAgreedToTerms = true
+        };
+        user.Created("System");
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var command = new ResendVerificationEmailCommand("verified@example.com");
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/auth/resend-verification", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ResendVerification_UserNotFound_Returns404()
+    {
+        // Arrange
+        var command = new ResendVerificationEmailCommand("missing@example.com");
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/auth/resend-verification", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     private void CleanupDatabase()

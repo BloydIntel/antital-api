@@ -76,7 +76,7 @@ BuildingBlocks/           # Shared infrastructure components
 2. Configure local secrets (JWT + Mailgun SMTP) via `dotnet user-secrets`:
    ```bash
    cd Antital.API
-   dotnet user-secrets set "Jwt:Key" "<your-dev-jwt-key>"
+   dotnet user-secrets set "Jwt:Key" "CHANGEME_DEV_JWT_KEY_32_BYTES_MINIMUM_2026"  # 32+ chars required
    dotnet user-secrets set "EmailSettings:SmtpPassword" "<your-mailgun-smtp-password>"
    ```
    Keep `appsettings.Development.json` placeholders as-is to avoid committing secrets.
