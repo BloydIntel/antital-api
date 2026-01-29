@@ -16,7 +16,7 @@ jobs:
       sqlserver:
         image: mcr.microsoft.com/mssql/server:2022-latest
         env:
-          SA_PASSWORD: Admin1234!!
+          SA_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
           ACCEPT_EULA: Y
         ports:
           - 1433:1433
@@ -27,7 +27,7 @@ jobs:
 
       - name: Wait for SQL Server
         env:
-          SA_PASSWORD: Admin1234!!
+          SA_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
         run: |
           sleep 10
           CONTAINER_ID=$(docker ps --filter "name=sqlserver" --format "{{.ID}}" | head -n1)
