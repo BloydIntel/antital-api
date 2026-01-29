@@ -6,6 +6,7 @@ using Antital.Domain.Models;
 using BuildingBlocks.Application.Exceptions;
 using BuildingBlocks.Domain.Interfaces;
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using Moq;
 using Xunit;
 
@@ -19,6 +20,7 @@ public class SignUpCommandHandlerTests
     private readonly Mock<IEmailService> _emailServiceMock;
     private readonly Mock<IAntitalUnitOfWork> _unitOfWorkMock;
     private readonly Mock<ICurrentUser> _currentUserMock;
+    private readonly IConfiguration _configuration;
     private readonly SignUpCommandHandler _handler;
 
     public SignUpCommandHandlerTests()
@@ -29,6 +31,13 @@ public class SignUpCommandHandlerTests
         _emailServiceMock = new Mock<IEmailService>();
         _unitOfWorkMock = new Mock<IAntitalUnitOfWork>();
         _currentUserMock = new Mock<ICurrentUser>();
+        _configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                { "Jwt:RefreshTokenDays", "30" },
+                { "Email:VerificationExpiryHours", "24" }
+            })
+            .Build();
 
         _handler = new SignUpCommandHandler(
             _userRepositoryMock.Object,
@@ -36,7 +45,8 @@ public class SignUpCommandHandlerTests
             _jwtTokenServiceMock.Object,
             _emailServiceMock.Object,
             _unitOfWorkMock.Object,
-            _currentUserMock.Object
+            _currentUserMock.Object,
+            _configuration
         );
     }
 

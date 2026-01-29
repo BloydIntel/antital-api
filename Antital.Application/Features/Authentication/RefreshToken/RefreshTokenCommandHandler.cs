@@ -1,26 +1,29 @@
+using Antital.Application.Common.Security;
 using Antital.Application.DTOs.Authentication;
 using Antital.Domain.Interfaces;
 using BuildingBlocks.Application.Exceptions;
 using BuildingBlocks.Application.Features;
 using BuildingBlocks.Resources;
-using System.Security.Cryptography;
-using System.Text;
+using Microsoft.Extensions.Configuration;
 
 namespace Antital.Application.Features.Authentication.RefreshToken;
 
 public class RefreshTokenCommandHandler(
     IUserRepository userRepository,
     IJwtTokenService jwtTokenService,
-    IAntitalUnitOfWork unitOfWork
+    IAntitalUnitOfWork unitOfWork,
+    IConfiguration configuration
 ) : ICommandQueryHandler<RefreshTokenCommand, AuthResponseDto>
 {
+    private readonly int _refreshTokenDays = configuration.GetValue<int>("Jwt:RefreshTokenDays", 30);
+
     public async Task<Result<AuthResponseDto>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
         var incomingToken = request.RefreshToken;
         if (string.IsNullOrWhiteSpace(incomingToken))
             throw new UnauthorizedException(Messages.Unauthorized);
 
-        var incomingHash = HashToken(incomingToken);
+        var incomingHash = TokenGenerator.HashToken(incomingToken);
         var user = await userRepository.GetByRefreshTokenHashAsync(incomingHash, cancellationToken);
 
         if (user == null ||
@@ -31,9 +34,9 @@ public class RefreshTokenCommandHandler(
         }
 
         // Rotate refresh token
-        var newRefreshToken = GenerateSecureToken();
-        user.RefreshTokenHash = HashToken(newRefreshToken);
-        user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(30);
+        var newRefreshToken = TokenGenerator.GenerateSecureToken();
+        user.RefreshTokenHash = TokenGenerator.HashToken(newRefreshToken);
+        user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(_refreshTokenDays);
         user.Updated(user.Email);
         await userRepository.UpdateAsync(user, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -57,20 +60,4 @@ public class RefreshTokenCommandHandler(
         return result;
     }
 
-    private static string GenerateSecureToken()
-    {
-        const int TokenByteLength = 32;
-        using var rng = RandomNumberGenerator.Create();
-        var bytes = new byte[TokenByteLength];
-        rng.GetBytes(bytes);
-        return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").Replace("=", "");
-    }
-
-    private static string HashToken(string token)
-    {
-        using var sha = SHA256.Create();
-        var bytes = Encoding.UTF8.GetBytes(token);
-        var hash = sha.ComputeHash(bytes);
-        return Convert.ToHexString(hash).ToLowerInvariant();
-    }
 }

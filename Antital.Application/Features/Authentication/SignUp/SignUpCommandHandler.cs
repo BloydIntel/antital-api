@@ -2,12 +2,12 @@ using Antital.Application.DTOs.Authentication;
 using Antital.Domain.Enums;
 using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
+using Antital.Application.Common.Security;
 using BuildingBlocks.Application.Exceptions;
 using BuildingBlocks.Application.Features;
 using BuildingBlocks.Domain.Interfaces;
 using BuildingBlocks.Resources;
-using System.Security.Cryptography;
-using System.Text;
+using Microsoft.Extensions.Configuration;
 
 namespace Antital.Application.Features.Authentication.SignUp;
 
@@ -17,9 +17,13 @@ public class SignUpCommandHandler(
     IJwtTokenService jwtTokenService,
     IEmailService emailService,
     IAntitalUnitOfWork unitOfWork,
-    ICurrentUser currentUser
+    ICurrentUser currentUser,
+    IConfiguration configuration
 ) : ICommandQueryHandler<SignUpCommand, AuthResponseDto>
 {
+    private readonly int _refreshTokenDays = configuration.GetValue<int>("Jwt:RefreshTokenDays", 30);
+    private readonly int _emailVerificationHours = configuration.GetValue<int>("Email:VerificationExpiryHours", 24);
+
     public async Task<Result<AuthResponseDto>> Handle(SignUpCommand request, CancellationToken cancellationToken)
     {
         // 1. Check if email already exists
@@ -33,15 +37,15 @@ public class SignUpCommandHandler(
         var passwordHash = passwordHasher.HashPassword(request.Password);
 
         // 3. Generate email verification token (secure random 32+ chars)
-        var verificationToken = GenerateSecureToken();
+        var verificationToken = TokenGenerator.GenerateSecureToken();
 
         // 4. Set token expiry (24 hours from now)
-        var tokenExpiry = DateTime.UtcNow.AddHours(24);
+        var tokenExpiry = DateTime.UtcNow.AddHours(_emailVerificationHours);
 
         // 4b. Generate refresh token
-        var refreshToken = GenerateSecureToken();
-        var refreshTokenHash = HashToken(refreshToken);
-        var refreshTokenExpiry = DateTime.UtcNow.AddDays(30);
+        var refreshToken = TokenGenerator.GenerateSecureToken();
+        var refreshTokenHash = TokenGenerator.HashToken(refreshToken);
+        var refreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenDays);
 
         // 5. Create User entity
         var user = new User
@@ -99,21 +103,4 @@ public class SignUpCommandHandler(
         return result;
     }
 
-    private static string GenerateSecureToken()
-    {
-        // Generate a URL-safe token: 32 bytes (256 bits) -> 43 base64url chars (padding removed)
-        const int TokenByteLength = 32;
-        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        var bytes = new byte[TokenByteLength];
-        rng.GetBytes(bytes);
-        return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").Replace("=", "");
-    }
-
-    private static string HashToken(string token)
-    {
-        using var sha = SHA256.Create();
-        var bytes = Encoding.UTF8.GetBytes(token);
-        var hash = sha.ComputeHash(bytes);
-        return Convert.ToHexString(hash).ToLowerInvariant();
-    }
 }

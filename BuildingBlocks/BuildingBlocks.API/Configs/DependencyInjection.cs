@@ -101,7 +101,7 @@ public static class DependencyInjection
                 ?? "Production";
         
         var elasticSearchUri = configuration["ElasticSearch:Uri"];
-        if (environmentName != "Testing" 
+        if (!environmentName.Equals("Testing", StringComparison.OrdinalIgnoreCase) 
             && !string.IsNullOrWhiteSpace(elasticSearchUri) 
             && Uri.TryCreate(elasticSearchUri, UriKind.Absolute, out var uri))
         {

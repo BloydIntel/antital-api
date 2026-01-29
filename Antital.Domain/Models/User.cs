@@ -26,4 +26,7 @@ public class User : TrackableEntity
     [MaxLength(500)]
     public string? RefreshTokenHash { get; set; }
     public DateTime? RefreshTokenExpiresAt { get; set; }
+    [MaxLength(500)]
+    public string? PasswordResetTokenHash { get; set; }
+    public DateTime? PasswordResetTokenExpiry { get; set; }
 }

@@ -1,10 +1,10 @@
+using Antital.Application.Common.Security;
 using Antital.Application.DTOs.Authentication;
 using Antital.Domain.Interfaces;
 using BuildingBlocks.Application.Exceptions;
 using BuildingBlocks.Application.Features;
 using BuildingBlocks.Resources;
-using System.Security.Cryptography;
-using System.Text;
+using Microsoft.Extensions.Configuration;
 
 namespace Antital.Application.Features.Authentication.Login;
 
@@ -12,9 +12,12 @@ public class LoginCommandHandler(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
-    IAntitalUnitOfWork unitOfWork
+    IAntitalUnitOfWork unitOfWork,
+    IConfiguration configuration
 ) : ICommandQueryHandler<LoginCommand, AuthResponseDto>
 {
+    private readonly int _refreshTokenDays = configuration.GetValue<int>("Jwt:RefreshTokenDays", 30);
+
     public async Task<Result<AuthResponseDto>> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
         // 1. Find user by email → throw NotFoundException if not found
@@ -38,9 +41,9 @@ public class LoginCommandHandler(
         }
 
         // 3b. Generate refresh token and persist
-        var refreshToken = GenerateSecureToken();
-        user.RefreshTokenHash = HashToken(refreshToken);
-        user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(30);
+        var refreshToken = TokenGenerator.GenerateSecureToken();
+        user.RefreshTokenHash = TokenGenerator.HashToken(refreshToken);
+        user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(_refreshTokenDays);
         await userRepository.UpdateAsync(user, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -64,20 +67,4 @@ public class LoginCommandHandler(
         return result;
     }
 
-    private static string GenerateSecureToken()
-    {
-        const int TokenByteLength = 32;
-        using var rng = RandomNumberGenerator.Create();
-        var bytes = new byte[TokenByteLength];
-        rng.GetBytes(bytes);
-        return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").Replace("=", "");
-    }
-
-    private static string HashToken(string token)
-    {
-        using var sha = SHA256.Create();
-        var bytes = Encoding.UTF8.GetBytes(token);
-        var hash = sha.ComputeHash(bytes);
-        return Convert.ToHexString(hash).ToLowerInvariant();
-    }
 }

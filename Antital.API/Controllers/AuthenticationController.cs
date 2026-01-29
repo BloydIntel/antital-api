@@ -9,6 +9,8 @@ using Antital.Application.DTOs.Authentication;
 using Swashbuckle.AspNetCore.Filters;
 using Antital.Application.Features.Authentication.RefreshToken;
 using Antital.Application.Features.Authentication.Logout;
+using Antital.Application.Features.Authentication.ForgotPassword;
+using Antital.Application.Features.Authentication.ResetPassword;
 
 namespace Antital.API.Controllers;
 
@@ -71,6 +73,26 @@ public class AuthenticationController(IMediator mediator) : BaseController
     [SwaggerResponse(StatusCodes.Status200OK, "Logged out successfully", typeof(void))]
     [SwaggerResponse(StatusCodes.Status401Unauthorized, "Invalid or expired refresh token", typeof(void))]
     public async Task<IActionResult> Logout(LogoutCommand request, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(request, cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPost("forgot-password")]
+    [SwaggerOperation("Forgot Password", "Send a password reset email")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Reset email sent (always 200 even if email not found)", typeof(void))]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordCommand request, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(request, cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPost("reset-password")]
+    [SwaggerOperation("Reset Password", "Reset password using email + token")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Password reset successfully", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid or expired token", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
+    public async Task<IActionResult> ResetPassword(ResetPasswordCommand request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(request, cancellationToken);
         return ApiResult(result);

@@ -25,7 +25,7 @@ public class UserRepository(
 
     public async Task<User?> GetByRefreshTokenHashAsync(string refreshTokenHash, CancellationToken cancellationToken)
     {
-        return await Set
+        return await SetAsNoTracking
             .FirstOrDefaultAsync(u => u.RefreshTokenHash == refreshTokenHash && !u.IsDeleted, cancellationToken);
     }
 
@@ -57,7 +57,6 @@ public class UserRepository(
         user.EmailVerificationTokenExpiry = null;
         user.Updated(email);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
 }

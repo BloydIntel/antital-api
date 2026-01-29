@@ -62,6 +62,54 @@ public class EmailService : IEmailService
         return SendEmailAsync(email, "Verify Your Email Address", htmlBody, cancellationToken);
     }
 
+    public Task SendPasswordResetEmailAsync(string email, string token, CancellationToken cancellationToken)
+    {
+        var resetLink = $"{_settings.BaseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+        var htmlBody = BuildEmailBody("reset_password.html", new Dictionary<string, string>
+        {
+            { "{{ email }}", email },
+            { "{{ reset_link }}", resetLink },
+            { "{{ base_url }}", _settings.BaseUrl ?? string.Empty },
+            { "{{ valid_hours }}", "1" },
+            { "{{ project_name }}", "Antital" }
+        },
+        fallback: $"""
+            <html><body>
+            <p>Hello,</p>
+            <p>You requested a password reset. Use the link below:</p>
+            <p><a href=\"{resetLink}\">Reset Password</a></p>
+            <p>This link will expire in 1 hour.</p>
+            </body></html>
+            """);
+
+        LogEmail("Password Reset", email, resetLink, htmlBody);
+
+        return SendEmailAsync(email, "Reset Your Password", htmlBody, cancellationToken);
+    }
+
+    public Task SendWelcomeEmailAsync(string email, string username, CancellationToken cancellationToken, string? maskedPassword = null)
+    {
+        var htmlBody = BuildEmailBody("new_account.html", new Dictionary<string, string>
+        {
+            { "{{ email }}", email },
+            { "{{ username }}", username },
+            { "{{ password }}", maskedPassword ?? "********" },
+            { "{{ link }}", _settings.BaseUrl ?? string.Empty },
+            { "{{ project_name }}", "Antital" }
+        },
+        fallback: $"""
+            <html><body>
+            <p>Welcome {username},</p>
+            <p>Your account has been created.</p>
+            <p>Username: {username}</p>
+            </body></html>
+            """);
+
+        LogEmail("Welcome", email, _settings.BaseUrl ?? string.Empty, htmlBody);
+
+        return SendEmailAsync(email, "Welcome to Antital", htmlBody, cancellationToken);
+    }
+
     private async Task SendEmailAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_settings.SmtpHost))
@@ -97,8 +145,30 @@ public class EmailService : IEmailService
         }
     }
 
+    private void LogEmail(string kind, string email, string link, string htmlBody)
+    {
+        var isProduction = string.Equals(_env.EnvironmentName, "Production", StringComparison.OrdinalIgnoreCase);
+        if (isProduction)
+        {
+            _logger.LogInformation("{Kind} email prepared for {Email}.", kind, email);
+        }
+        else
+        {
+            var logContent = $"""
+                {kind} Email
+                To: {email}
+                Subject: {kind}
+                Link: {link}
+
+                {htmlBody}
+                """;
+            _logger.LogInformation("{EmailContent}", logContent);
+        }
+    }
+
     public string BuildPasswordResetEmail(string email, string username, string link, int validHours)
     {
+        // TODO: Wire into the password-reset flow once implemented so this template is actually sent.
         return BuildEmailBody("reset_password.html", new Dictionary<string, string>
         {
             { "{{ email }}", email },
@@ -119,6 +189,7 @@ public class EmailService : IEmailService
 
     public string BuildNewAccountEmail(string email, string username, string password, string link, string projectName)
     {
+        // TODO: Use for successful user sign-up welcome flow; avoid sending plaintext passwords once the flow is defined.
         return BuildEmailBody("new_account.html", new Dictionary<string, string>
         {
             { "{{ email }}", email },

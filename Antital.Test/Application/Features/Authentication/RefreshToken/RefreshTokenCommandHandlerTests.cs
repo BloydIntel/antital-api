@@ -5,6 +5,7 @@ using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
 using BuildingBlocks.Application.Exceptions;
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using Moq;
 using System.Security.Cryptography;
 using System.Text;
@@ -17,11 +18,19 @@ public class RefreshTokenCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IJwtTokenService> _jwtMock = new();
     private readonly Mock<IAntitalUnitOfWork> _uowMock = new();
+    private readonly IConfiguration _configuration;
     private readonly RefreshTokenCommandHandler _handler;
 
     public RefreshTokenCommandHandlerTests()
     {
-        _handler = new RefreshTokenCommandHandler(_userRepoMock.Object, _jwtMock.Object, _uowMock.Object);
+        _configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                { "Jwt:RefreshTokenDays", "30" }
+            })
+            .Build();
+
+        _handler = new RefreshTokenCommandHandler(_userRepoMock.Object, _jwtMock.Object, _uowMock.Object, _configuration);
         _uowMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
     }
 

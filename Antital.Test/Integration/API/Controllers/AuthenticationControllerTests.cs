@@ -5,6 +5,8 @@ using Antital.Application.DTOs.Authentication;
 using Antital.Application.Features.Authentication.Login;
 using Antital.Application.Features.Authentication.SignUp;
 using Antital.Application.Features.Authentication.VerifyEmail;
+using Antital.Application.Features.Authentication.ForgotPassword;
+using Antital.Application.Features.Authentication.ResetPassword;
 using Antital.Domain.Enums;
 using Antital.Domain.Models;
 using Antital.Infrastructure;
@@ -13,6 +15,8 @@ using BuildingBlocks.Application.Features;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Security.Cryptography;
+using System.Text;
 using Xunit;
 
 namespace Antital.Test.Integration.API.Controllers;
@@ -46,6 +50,14 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
         
         // Clean up before each test class runs to ensure fresh state
         CleanupDatabase();
+    }
+
+    private static string HashToken(string token)
+    {
+        using var sha = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(token);
+        var hash = sha.ComputeHash(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     [Fact]
@@ -574,6 +586,67 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_AlwaysReturns200()
+    {
+        // Arrange
+        var command = new ForgotPasswordCommand("missing@example.com");
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/auth/forgot-password", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithValidToken_UpdatesPasswordAndClearsToken()
+    {
+        // Arrange: seed user with reset token
+        var email = "reset-user@example.com";
+        var token = "valid-reset-token";
+        var hash = HashToken(token);
+        var newPassword = "NewStrongP@ss1";
+
+        var user = new User
+        {
+            Email = email,
+            PasswordHash = "old-hash",
+            UserType = UserTypeEnum.IndividualInvestor,
+            PasswordResetTokenHash = hash,
+            PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(30),
+            HasAgreedToTerms = true,
+            FirstName = "Reset",
+            LastName = "User",
+            DateOfBirth = new DateTime(1990, 1, 1),
+            Nationality = "Nigerian",
+            CountryOfResidence = "Nigeria",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "123 Street",
+            PhoneNumber = "+2348012345678",
+            IsEmailVerified = true
+        };
+        user.Created("System");
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var command = new ResetPasswordCommand(email, token, newPassword, newPassword);
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/auth/reset-password", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Use a fresh scope/context to avoid stale tracking
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var freshContext = scope.ServiceProvider.GetRequiredService<AntitalDBContext>();
+        var updated = await freshContext.Users.FirstAsync(u => u.Email == email);
+        updated.PasswordHash.Should().NotBe("old-hash");
+        updated.PasswordResetTokenHash.Should().BeNull();
+        updated.PasswordResetTokenExpiry.Should().BeNull();
     }
 
     [Fact]

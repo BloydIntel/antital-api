@@ -282,6 +282,7 @@ public class UserRepositoryTests : IDisposable
 
         // Assert
         result.Should().BeTrue();
+        await _dbContext.SaveChangesAsync(); // mimic unit of work commit
         var updatedUser = await _dbContext.Users.FirstAsync(u => u.Email == "verify@example.com");
         updatedUser.IsEmailVerified.Should().BeTrue();
         updatedUser.EmailVerificationToken.Should().BeNull();
@@ -318,6 +319,7 @@ public class UserRepositoryTests : IDisposable
 
         // Assert
         result.Should().BeFalse();
+        await _dbContext.SaveChangesAsync();
     }
 
     [Fact]
@@ -351,6 +353,7 @@ public class UserRepositoryTests : IDisposable
 
         // Assert
         result.Should().BeFalse();
+        await _dbContext.SaveChangesAsync();
     }
 
     [Fact]
@@ -361,6 +364,7 @@ public class UserRepositoryTests : IDisposable
 
         // Assert
         result.Should().BeFalse();
+        await _dbContext.SaveChangesAsync();
     }
 
     [Fact]

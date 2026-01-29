@@ -5,6 +5,7 @@ using Antital.Domain.Models;
 using BuildingBlocks.Application.Exceptions;
 using Antital.Domain.Interfaces;
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using Moq;
 using Xunit;
 using System.Security.Cryptography;
@@ -18,6 +19,7 @@ public class LoginCommandHandlerTests
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<IAntitalUnitOfWork> _unitOfWorkMock;
+    private readonly IConfiguration _configuration;
     private readonly LoginCommandHandler _handler;
 
     public LoginCommandHandlerTests()
@@ -27,12 +29,19 @@ public class LoginCommandHandlerTests
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _unitOfWorkMock = new Mock<IAntitalUnitOfWork>();
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                { "Jwt:RefreshTokenDays", "30" }
+            })
+            .Build();
 
         _handler = new LoginCommandHandler(
             _userRepositoryMock.Object,
             _passwordHasherMock.Object,
             _jwtTokenServiceMock.Object,
-            _unitOfWorkMock.Object
+            _unitOfWorkMock.Object,
+            _configuration
         );
     }
 

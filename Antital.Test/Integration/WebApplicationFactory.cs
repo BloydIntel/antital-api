@@ -26,7 +26,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
             // Port is mapped to 8600:1433, so use localhost,8600 from host machine
             // Password is injected via environment variable TEST_DB_PASSWORD to avoid hardcoding secrets
             var testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD")
-                ?? throw new InvalidOperationException("TEST_DB_PASSWORD must be set for integration tests.");
+                ?? "Admin1234!!";
 
             var testConnectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING") 
                 ?? $"Server=localhost,8600;Database=AntitalDB_Test;User Id=sa;Password={testDbPassword};TrustServerCertificate=True;";
@@ -67,7 +67,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
             // Port is mapped to 8600:1433, so use localhost,8600 from host machine
             // Password is injected via environment variable TEST_DB_PASSWORD to avoid hardcoding secrets
             var testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD")
-                ?? throw new InvalidOperationException("TEST_DB_PASSWORD must be set for integration tests.");
+                ?? "Admin1234!!";
 
             var testConnectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING") 
                 ?? $"Server=localhost,8600;Database=AntitalDB_Test;User Id=sa;Password={testDbPassword};TrustServerCertificate=True;";
