@@ -53,6 +53,12 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 
+# Local appsettings with secrets (keep out of git)
+appsettings.*.local.json
+appsettings.Local.json
+Antital.API/appsettings.*.local.json
+Antital.API/appsettings.Local.json
+
 # Implementation plans (internal documentation)
 *_IMPLEMENTATION.md
 AUTHENTICATION_IMPLEMENTATION.md

@@ -6,6 +6,8 @@ using BuildingBlocks.Application.Exceptions;
 using BuildingBlocks.Application.Features;
 using BuildingBlocks.Domain.Interfaces;
 using BuildingBlocks.Resources;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Antital.Application.Features.Authentication.SignUp;
 
@@ -36,6 +38,11 @@ public class SignUpCommandHandler(
         // 4. Set token expiry (24 hours from now)
         var tokenExpiry = DateTime.UtcNow.AddHours(24);
 
+        // 4b. Generate refresh token
+        var refreshToken = GenerateSecureToken();
+        var refreshTokenHash = HashToken(refreshToken);
+        var refreshTokenExpiry = DateTime.UtcNow.AddDays(30);
+
         // 5. Create User entity
         var user = new User
         {
@@ -54,7 +61,9 @@ public class SignUpCommandHandler(
             CountryOfResidence = request.CountryOfResidence,
             StateOfResidence = request.StateOfResidence,
             ResidentialAddress = request.ResidentialAddress,
-            HasAgreedToTerms = request.HasAgreedToTerms
+            HasAgreedToTerms = request.HasAgreedToTerms,
+            RefreshTokenHash = refreshTokenHash,
+            RefreshTokenExpiresAt = refreshTokenExpiry
         };
 
         // Set tracking fields
@@ -77,6 +86,7 @@ public class SignUpCommandHandler(
         var response = new AuthResponseDto
         {
             Token = token,
+            RefreshToken = refreshToken,
             UserId = user.Id,
             Email = user.Email,
             UserType = user.UserType,
@@ -91,10 +101,19 @@ public class SignUpCommandHandler(
 
     private static string GenerateSecureToken()
     {
-        // Generate a secure random token of 32+ characters
+        // Generate a URL-safe token: 32 bytes (256 bits) -> 43 base64url chars (padding removed)
+        const int TokenByteLength = 32;
         using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        var bytes = new byte[32]; // 32 bytes = 256 bits
+        var bytes = new byte[TokenByteLength];
         rng.GetBytes(bytes);
         return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").Replace("=", "");
+    }
+
+    private static string HashToken(string token)
+    {
+        using var sha = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(token);
+        var hash = sha.ComputeHash(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 }

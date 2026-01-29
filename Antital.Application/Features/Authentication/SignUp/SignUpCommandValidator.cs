@@ -71,7 +71,7 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
 
         // HasAgreedToTerms validation
         RuleFor(x => x.HasAgreedToTerms)
-            .Must(x => x == true).WithMessage("You must agree to the terms and conditions to register.");
+            .Must(x => x).WithMessage("You must agree to the terms and conditions to register.");
     }
 
     private static bool BeValidPassword(string? password)
@@ -93,7 +93,7 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
         var age = today.Year - dateOfBirth.Year;
         
         // Adjust age if birthday hasn't occurred this year
-        if (dateOfBirth.Date > today.AddYears(-age))
+        if (dateOfBirth > today.AddYears(-age))
             age--;
 
         return age >= 18;

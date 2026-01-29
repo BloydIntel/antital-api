@@ -6,52 +6,45 @@ using BuildingBlocks.Resources;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Antital.Application.Features.Authentication.Login;
+namespace Antital.Application.Features.Authentication.RefreshToken;
 
-public class LoginCommandHandler(
+public class RefreshTokenCommandHandler(
     IUserRepository userRepository,
-    IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
     IAntitalUnitOfWork unitOfWork
-) : ICommandQueryHandler<LoginCommand, AuthResponseDto>
+) : ICommandQueryHandler<RefreshTokenCommand, AuthResponseDto>
 {
-    public async Task<Result<AuthResponseDto>> Handle(LoginCommand request, CancellationToken cancellationToken)
+    public async Task<Result<AuthResponseDto>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        // 1. Find user by email → throw NotFoundException if not found
-        var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
-        if (user == null)
-        {
-            throw new NotFoundException(Messages.NotFound);
-        }
+        var incomingToken = request.RefreshToken;
+        if (string.IsNullOrWhiteSpace(incomingToken))
+            throw new UnauthorizedException(Messages.Unauthorized);
 
-        // 2. Verify password using IPasswordHasher → throw UnauthorizedException if invalid
-        var isPasswordValid = passwordHasher.VerifyPassword(request.Password, user.PasswordHash);
-        if (!isPasswordValid)
+        var incomingHash = HashToken(incomingToken);
+        var user = await userRepository.GetByRefreshTokenHashAsync(incomingHash, cancellationToken);
+
+        if (user == null ||
+            !user.RefreshTokenExpiresAt.HasValue ||
+            user.RefreshTokenExpiresAt.Value < DateTime.UtcNow)
         {
             throw new UnauthorizedException(Messages.Unauthorized);
         }
 
-        // 3. Check if email is verified → throw UnauthorizedException if not verified
-        if (!user.IsEmailVerified)
-        {
-            throw new UnauthorizedException("Email address has not been verified. Please verify your email before logging in.");
-        }
-
-        // 3b. Generate refresh token and persist
-        var refreshToken = GenerateSecureToken();
-        user.RefreshTokenHash = HashToken(refreshToken);
+        // Rotate refresh token
+        var newRefreshToken = GenerateSecureToken();
+        user.RefreshTokenHash = HashToken(newRefreshToken);
         user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(30);
+        user.Updated(user.Email);
         await userRepository.UpdateAsync(user, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 4. Generate JWT token using IJwtTokenService
-        var token = jwtTokenService.GenerateToken(user);
+        // Issue new access token
+        var accessToken = jwtTokenService.GenerateToken(user);
 
-        // 5. Return AuthResponseDto
         var response = new AuthResponseDto
         {
-            Token = token,
-            RefreshToken = refreshToken,
+            Token = accessToken,
+            RefreshToken = newRefreshToken,
             UserId = user.Id,
             Email = user.Email,
             UserType = user.UserType,

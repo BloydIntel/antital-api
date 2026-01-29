@@ -17,10 +17,16 @@ public class UserRepository(
             .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
     }
 
-    public new async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken)
+    public override async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
         return await SetAsNoTracking
             .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
+    }
+
+    public async Task<User?> GetByRefreshTokenHashAsync(string refreshTokenHash, CancellationToken cancellationToken)
+    {
+        return await Set
+            .FirstOrDefaultAsync(u => u.RefreshTokenHash == refreshTokenHash && !u.IsDeleted, cancellationToken);
     }
 
     public async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken)
@@ -31,14 +37,27 @@ public class UserRepository(
 
     public async Task<bool> VerifyEmailAsync(string email, string token, CancellationToken cancellationToken)
     {
-        var user = await SetAsNoTracking
+        // Use tracking so we can persist changes on successful verification
+        var user = await Set
             .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
 
         if (user == null)
             return false;
 
-        return user.EmailVerificationToken == token &&
-               user.EmailVerificationTokenExpiry.HasValue &&
-               user.EmailVerificationTokenExpiry.Value >= DateTime.UtcNow;
+        var isValid =
+            user.EmailVerificationToken == token &&
+            user.EmailVerificationTokenExpiry.HasValue &&
+            user.EmailVerificationTokenExpiry.Value >= DateTime.UtcNow;
+
+        if (!isValid)
+            return false;
+
+        user.IsEmailVerified = true;
+        user.EmailVerificationToken = null;
+        user.EmailVerificationTokenExpiry = null;
+        user.Updated(email);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
     }
 }

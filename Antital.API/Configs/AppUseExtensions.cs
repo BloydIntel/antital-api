@@ -1,7 +1,8 @@
 using BuildingBlocks.Application.Jobs;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Antital.Infrastructure;
@@ -71,18 +72,27 @@ public static class AppUseExtensions
     {
         using var serviceScope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
         var context = serviceScope.ServiceProvider.GetService<AntitalDBContext>();
+        var env = serviceScope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+        var logger = serviceScope.ServiceProvider
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("DatabaseMigration");
         
         if (context != null)
         {
             try
             {
-                // Try to migrate - if tables already exist (from EnsureCreated in tests), this will be a no-op
+                if (env.IsEnvironment("Testing"))
+                {
+                    // Ensure schema matches migrations and avoid collisions from prior EnsureCreated
+                    context.Database.EnsureDeleted();
+                }
+
                 context.Database.Migrate();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Migration failed - likely because tables already exist from EnsureCreated in tests
-                // This is fine - the database schema is already correct
+                logger.LogError(ex, "Database migration failed during startup (Environment: {EnvironmentName}).", env.EnvironmentName);
+                throw;
             }
         }
 

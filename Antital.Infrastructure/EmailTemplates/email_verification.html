@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification</title>
+    <style>
+      body { font-family: Arial, sans-serif; background: #f5f7fb; margin: 0; padding: 0; }
+      .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; padding: 24px; border: 1px solid #e5e7eb; }
+      .btn { display: inline-block; padding: 12px 18px; background: #1f6feb; color: #fff; text-decoration: none; border-radius: 6px; }
+      .muted { color: #6b7280; font-size: 14px; }
+      h1 { font-size: 20px; color: #111827; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Verify Your Email Address</h1>
+      <p>Hello,</p>
+      <p>Please confirm your email by clicking the button below:</p>
+      <p><a class="btn" href="{{ verification_link }}">Verify Email</a></p>
+      <p class="muted">If the button doesn’t work, copy and paste this link into your browser:</p>
+      <p><a href="{{ verification_link }}">{{ verification_link }}</a></p>
+      <p class="muted">This link will expire in 24 hours.</p>
+      <p class="muted">You received this email for {{ email }}. If this wasn’t you, you can safely ignore it.</p>
+    </div>
+  </body>
+</html>

@@ -17,7 +17,7 @@ namespace Antital.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.7")
+                .HasAnnotation("ProductVersion", "8.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -203,6 +203,13 @@ namespace Antital.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateTime?>("RefreshTokenExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RefreshTokenHash")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("StateOfResidence")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -226,6 +233,9 @@ namespace Antital.Infrastructure.Migrations
 
                     b.HasIndex("EmailVerificationToken")
                         .HasFilter("[EmailVerificationToken] IS NOT NULL AND [IsDeleted] = 0");
+
+                    b.HasIndex("RefreshTokenHash")
+                        .HasFilter("[RefreshTokenHash] IS NOT NULL AND [IsDeleted] = 0");
 
                     b.ToTable("Users");
                 });

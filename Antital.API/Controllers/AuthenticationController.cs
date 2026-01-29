@@ -7,6 +7,8 @@ using Antital.Application.Features.Authentication.SignUp;
 using Antital.Application.Features.Authentication.VerifyEmail;
 using Antital.Application.DTOs.Authentication;
 using Swashbuckle.AspNetCore.Filters;
+using Antital.Application.Features.Authentication.RefreshToken;
+using Antital.Application.Features.Authentication.Logout;
 
 namespace Antital.API.Controllers;
 
@@ -48,6 +50,27 @@ public class AuthenticationController(IMediator mediator) : BaseController
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid or expired token", typeof(void))]
     [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
     public async Task<IActionResult> VerifyEmail(VerifyEmailCommand request, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(request, cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPost("refresh")]
+    [SwaggerOperation("Refresh Token", "Get a new access token using a refresh token")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Token refreshed", typeof(AuthResponseDto))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid request data", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Invalid or expired refresh token", typeof(void))]
+    public async Task<IActionResult> Refresh(RefreshTokenCommand request, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(request, cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPost("logout")]
+    [SwaggerOperation("Logout", "Revoke a refresh token")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Logged out successfully", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Invalid or expired refresh token", typeof(void))]
+    public async Task<IActionResult> Logout(LogoutCommand request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(request, cancellationToken);
         return ApiResult(result);

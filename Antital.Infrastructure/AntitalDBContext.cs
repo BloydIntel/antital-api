@@ -70,6 +70,12 @@ public class AntitalDBContext(
 
             entity.Property(e => e.EmailVerificationToken)
                 .HasMaxLength(500);
+
+            entity.Property(e => e.RefreshTokenHash)
+                .HasMaxLength(500);
+
+            entity.HasIndex(e => e.RefreshTokenHash)
+                .HasFilter("[RefreshTokenHash] IS NOT NULL AND [IsDeleted] = 0");
         });
     }
 }

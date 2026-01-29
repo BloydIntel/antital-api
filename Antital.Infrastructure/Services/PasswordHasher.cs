@@ -25,8 +25,10 @@ public class PasswordHasher : IPasswordHasher
         {
             return BCrypt.Net.BCrypt.Verify(password, passwordHash);
         }
-        catch
+        catch (Exception ex)
         {
+            // Log and fail closed if hash is malformed or bcrypt throws
+            Console.Error.WriteLine($"Password verification failed: {ex.Message}");
             return false;
         }
     }

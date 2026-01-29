@@ -2,6 +2,7 @@ using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
 using Antital.Domain.Enums;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -13,11 +14,13 @@ public class JwtTokenService : IJwtTokenService
 {
     private readonly IConfiguration _configuration;
     private readonly JwtSecurityTokenHandler _tokenHandler;
+    private readonly ILogger<JwtTokenService> _logger;
 
-    public JwtTokenService(IConfiguration configuration)
+    public JwtTokenService(IConfiguration configuration, ILogger<JwtTokenService> logger)
     {
         _configuration = configuration;
         _tokenHandler = new JwtSecurityTokenHandler();
+        _logger = logger;
     }
 
     public string GenerateToken(User user)
@@ -36,7 +39,11 @@ public class JwtTokenService : IJwtTokenService
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        var tokenExpiryMinutes = int.Parse(_configuration["Jwt:TokenExpiryMinutes"] ?? "15");
+        var tokenExpiryValue = _configuration["Jwt:TokenExpiryMinutes"];
+        if (!int.TryParse(tokenExpiryValue, out var tokenExpiryMinutes))
+        {
+            tokenExpiryMinutes = 15; // safe default
+        }
         var issuer = _configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT Issuer is not configured.");
         var audience = _configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT Audience is not configured.");
 
@@ -73,8 +80,19 @@ public class JwtTokenService : IJwtTokenService
             var principal = _tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
             return principal;
         }
-        catch
+        catch (SecurityTokenExpiredException ex)
         {
+            _logger.LogWarning(ex, "JWT validation failed: token expired.");
+            return null;
+        }
+        catch (SecurityTokenException ex)
+        {
+            _logger.LogWarning(ex, "JWT validation failed: security token error.");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "JWT validation failed: unexpected error.");
             return null;
         }
     }

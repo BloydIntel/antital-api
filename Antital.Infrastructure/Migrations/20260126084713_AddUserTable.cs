@@ -33,6 +33,8 @@ namespace Antital.Infrastructure.Migrations
                     StateOfResidence = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     ResidentialAddress = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     HasAgreedToTerms = table.Column<bool>(type: "bit", nullable: false),
+                    RefreshTokenHash = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    RefreshTokenExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -58,6 +60,12 @@ namespace Antital.Infrastructure.Migrations
                 table: "Users",
                 column: "EmailVerificationToken",
                 filter: "[EmailVerificationToken] IS NOT NULL AND [IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_RefreshTokenHash",
+                table: "Users",
+                column: "RefreshTokenHash",
+                filter: "[RefreshTokenHash] IS NOT NULL AND [IsDeleted] = 0");
         }
 
         /// <inheritdoc />

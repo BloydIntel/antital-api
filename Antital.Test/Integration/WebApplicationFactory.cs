@@ -24,9 +24,12 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
             // Override connection string to use Docker SQL Server test database
             // Make sure Docker container is running: docker-compose up antitaldb
             // Port is mapped to 8600:1433, so use localhost,8600 from host machine
-            // Password from docker-compose.override.yml: Admin1234!!
+            // Password is injected via environment variable TEST_DB_PASSWORD to avoid hardcoding secrets
+            var testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD")
+                ?? throw new InvalidOperationException("TEST_DB_PASSWORD must be set for integration tests.");
+
             var testConnectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING") 
-                ?? "Server=localhost,8600;Database=AntitalDB_Test;User Id=sa;Password=Admin1234!!;TrustServerCertificate=True;";
+                ?? $"Server=localhost,8600;Database=AntitalDB_Test;User Id=sa;Password={testDbPassword};TrustServerCertificate=True;";
             
             // Add test configuration LAST so it overrides appsettings
             // Use null instead of empty string to ensure Elasticsearch sink is skipped
@@ -62,9 +65,12 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
 
             // Add Docker SQL Server database for testing (matches production)
             // Port is mapped to 8600:1433, so use localhost,8600 from host machine
-            // Password from docker-compose.override.yml: Admin1234!!
+            // Password is injected via environment variable TEST_DB_PASSWORD to avoid hardcoding secrets
+            var testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD")
+                ?? throw new InvalidOperationException("TEST_DB_PASSWORD must be set for integration tests.");
+
             var testConnectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING") 
-                ?? "Server=localhost,8600;Database=AntitalDB_Test;User Id=sa;Password=Admin1234!!;TrustServerCertificate=True;";
+                ?? $"Server=localhost,8600;Database=AntitalDB_Test;User Id=sa;Password={testDbPassword};TrustServerCertificate=True;";
             
             services.AddDbContext<AntitalDBContext>(options =>
             {
@@ -76,12 +82,13 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
         });
         
         // Workaround: Configure Kestrel to use a real server instead of TestServer
-        // This avoids the PipeWriter.UnflushedBytes issue
+        // This avoids the PipeWriter.UnflushedBytes issue observed with TestServer.
+        // Limitation: Kestrel binds to an ephemeral port; WebApplicationFactory injects the
+        // correct BaseAddress for HttpClient, but external tools can't rely on a fixed port.
+        // If the upstream TestServer issue is resolved, we can revert to the in-memory server.
         builder.UseKestrel(options =>
         {
             options.ListenLocalhost(0); // Use random available port
         });
-
-        builder.UseEnvironment("Testing");
     }
 }

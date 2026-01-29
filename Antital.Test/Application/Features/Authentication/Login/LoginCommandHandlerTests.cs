@@ -1,12 +1,14 @@
 using Antital.Application.DTOs.Authentication;
 using Antital.Application.Features.Authentication.Login;
 using Antital.Domain.Enums;
-using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
 using BuildingBlocks.Application.Exceptions;
+using Antital.Domain.Interfaces;
 using FluentAssertions;
 using Moq;
 using Xunit;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Antital.Test.Application.Features.Authentication.Login;
 
@@ -15,6 +17,7 @@ public class LoginCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
+    private readonly Mock<IAntitalUnitOfWork> _unitOfWorkMock;
     private readonly LoginCommandHandler _handler;
 
     public LoginCommandHandlerTests()
@@ -22,11 +25,14 @@ public class LoginCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
+        _unitOfWorkMock = new Mock<IAntitalUnitOfWork>();
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         _handler = new LoginCommandHandler(
             _userRepositoryMock.Object,
             _passwordHasherMock.Object,
-            _jwtTokenServiceMock.Object
+            _jwtTokenServiceMock.Object,
+            _unitOfWorkMock.Object
         );
     }
 
@@ -76,10 +82,13 @@ public class LoginCommandHandlerTests
         result.Value.Email.Should().Be(user.Email);
         result.Value.UserType.Should().Be(user.UserType);
         result.Value.IsEmailVerified.Should().BeTrue();
+        result.Value.RefreshToken.Should().NotBeNullOrEmpty();
 
         _userRepositoryMock.Verify(x => x.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()), Times.Once);
         _passwordHasherMock.Verify(x => x.VerifyPassword(command.Password, user.PasswordHash), Times.Once);
         _jwtTokenServiceMock.Verify(x => x.GenerateToken(user), Times.Once);
+        _userRepositoryMock.Verify(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

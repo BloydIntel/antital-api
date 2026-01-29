@@ -340,6 +340,52 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task Logout_ValidToken_Revokes()
+    {
+        // Arrange: create user with refresh token
+        var refreshToken = "logout_token_123";
+        var refreshHash = ComputeHash(refreshToken);
+
+        var user = new User
+        {
+            Email = "logout@example.com",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("SecurePass123!"),
+            UserType = UserTypeEnum.IndividualInvestor,
+            IsEmailVerified = true,
+            FirstName = "Test",
+            LastName = "User",
+            PhoneNumber = "+2348012345678",
+            DateOfBirth = new DateTime(1990, 1, 1),
+            Nationality = "Nigerian",
+            CountryOfResidence = "Nigeria",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "123 Main Street",
+            HasAgreedToTerms = true,
+            RefreshTokenHash = refreshHash,
+            RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(5)
+        };
+        user.Created("System");
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var command = new Antital.Application.Features.Authentication.Logout.LogoutCommand(refreshToken);
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/auth/logout", command);
+
+        // Assert
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new Xunit.Sdk.XunitException($"Expected 200 OK but got {(int)response.StatusCode}. Body: {body}");
+        }
+        _context.ChangeTracker.Clear();
+        var updated = await _context.Users.FirstAsync(u => u.Email == user.Email);
+        updated.RefreshTokenHash.Should().BeNull();
+        updated.RefreshTokenExpiresAt.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Login_UnverifiedEmail_Returns401Unauthorized()
     {
         // Arrange
@@ -584,6 +630,66 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
         loginResult!.IsSuccess.Should().BeTrue();
         loginResult.Value!.IsEmailVerified.Should().BeTrue();
         loginResult.Value.Token.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task RefreshToken_Valid_ReturnsNewTokens()
+    {
+        // Arrange: create verified user with refresh token
+        var refreshToken = "refresh_token_123";
+        var refreshHash = ComputeHash(refreshToken);
+
+        var user = new User
+        {
+            Email = "refresh@example.com",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("SecurePass123!"),
+            UserType = UserTypeEnum.IndividualInvestor,
+            IsEmailVerified = true,
+            FirstName = "Test",
+            LastName = "User",
+            PhoneNumber = "+2348012345678",
+            DateOfBirth = new DateTime(1990, 1, 1),
+            Nationality = "Nigerian",
+            CountryOfResidence = "Nigeria",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "123 Main Street",
+            HasAgreedToTerms = true,
+            RefreshTokenHash = refreshHash,
+            RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(5)
+        };
+        user.Created("System");
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var command = new Antital.Application.Features.Authentication.RefreshToken.RefreshTokenCommand(refreshToken);
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/auth/refresh", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Result<AuthResponseDto>>(JsonOptions);
+        result.Should().NotBeNull();
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.Token.Should().NotBeNullOrEmpty();
+        result.Value.RefreshToken.Should().NotBe(refreshToken);
+    }
+
+    [Fact]
+    public async Task RefreshToken_Invalid_Returns401()
+    {
+        var command = new Antital.Application.Features.Authentication.RefreshToken.RefreshTokenCommand("invalid");
+
+        var response = await _client.PostAsJsonAsync("/api/auth/refresh", command);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private static string ComputeHash(string token)
+    {
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(token);
+        return Convert.ToHexString(sha.ComputeHash(bytes)).ToLowerInvariant();
     }
 
     [Fact]

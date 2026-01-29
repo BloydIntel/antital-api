@@ -282,6 +282,10 @@ public class UserRepositoryTests : IDisposable
 
         // Assert
         result.Should().BeTrue();
+        var updatedUser = await _dbContext.Users.FirstAsync(u => u.Email == "verify@example.com");
+        updatedUser.IsEmailVerified.Should().BeTrue();
+        updatedUser.EmailVerificationToken.Should().BeNull();
+        updatedUser.EmailVerificationTokenExpiry.Should().BeNull();
     }
 
     [Fact]
@@ -357,6 +361,40 @@ public class UserRepositoryTests : IDisposable
 
         // Assert
         result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetByRefreshTokenHashAsync_ReturnsUser()
+    {
+        // Arrange
+        var tokenHash = "abc123";
+        var user = new User
+        {
+            Email = "refresh@example.com",
+            PasswordHash = "hashed",
+            UserType = UserTypeEnum.IndividualInvestor,
+            FirstName = "Refresh",
+            LastName = "User",
+            PhoneNumber = "+1234567890",
+            DateOfBirth = new DateTime(1990, 1, 1),
+            Nationality = "Nigerian",
+            CountryOfResidence = "Nigeria",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "123 Main Street, Lagos",
+            HasAgreedToTerms = true,
+            RefreshTokenHash = tokenHash,
+            RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(5)
+        };
+        user.Created("TestUser");
+        _dbContext.Users.Add(user);
+        await _dbContext.SaveChangesAsync(CancellationToken.None);
+
+        // Act
+        var result = await _repository.GetByRefreshTokenHashAsync(tokenHash, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Email.Should().Be(user.Email);
     }
 
     public void Dispose()

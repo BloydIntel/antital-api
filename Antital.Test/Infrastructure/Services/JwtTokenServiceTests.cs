@@ -3,6 +3,7 @@ using Antital.Domain.Models;
 using Antital.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Moq;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -13,11 +14,13 @@ namespace Antital.Test.Infrastructure.Services;
 public class JwtTokenServiceTests
 {
     private readonly Mock<IConfiguration> _configurationMock;
+    private readonly Mock<ILogger<JwtTokenService>> _loggerMock;
     private readonly JwtTokenService _jwtTokenService;
 
     public JwtTokenServiceTests()
     {
         _configurationMock = new Mock<IConfiguration>();
+        _loggerMock = new Mock<ILogger<JwtTokenService>>();
         
         // Setup default JWT configuration
         _configurationMock.Setup(x => x["Jwt:Key"]).Returns("ThisIsAVeryLongSecretKeyForJwtTokenGeneration123456789");
@@ -25,7 +28,7 @@ public class JwtTokenServiceTests
         _configurationMock.Setup(x => x["Jwt:Audience"]).Returns("AntitalClient");
         _configurationMock.Setup(x => x["Jwt:TokenExpiryMinutes"]).Returns("15");
 
-        _jwtTokenService = new JwtTokenService(_configurationMock.Object);
+        _jwtTokenService = new JwtTokenService(_configurationMock.Object, _loggerMock.Object);
     }
 
     [Fact]
@@ -142,7 +145,7 @@ public class JwtTokenServiceTests
         expiredConfigMock.Setup(x => x["Jwt:Audience"]).Returns("AntitalClient");
         expiredConfigMock.Setup(x => x["Jwt:TokenExpiryMinutes"]).Returns("-60"); // Expired 60 minutes ago
         
-        var expiredService = new JwtTokenService(expiredConfigMock.Object);
+        var expiredService = new JwtTokenService(expiredConfigMock.Object, _loggerMock.Object);
         
         var user = new User
         {

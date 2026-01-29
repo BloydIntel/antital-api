@@ -1,5 +1,6 @@
 using Antital.Infrastructure.Services;
 using FluentAssertions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -11,6 +12,7 @@ public class EmailServiceTests
 {
     private readonly Mock<ILogger<EmailService>> _loggerMock;
     private readonly Mock<IOptions<EmailSettings>> _optionsMock;
+    private readonly Mock<IHostEnvironment> _envMock;
     private readonly EmailService _emailService;
 
     public EmailServiceTests()
@@ -23,7 +25,10 @@ public class EmailServiceTests
             FromEmail = "test@antital.com",
             FromName = "Antital"
         });
-        _emailService = new EmailService(_loggerMock.Object, _optionsMock.Object);
+        _envMock = new Mock<IHostEnvironment>();
+        _envMock.SetupGet(x => x.EnvironmentName).Returns("Testing");
+
+        _emailService = new EmailService(_loggerMock.Object, _optionsMock.Object, _envMock.Object);
     }
 
     [Fact]
