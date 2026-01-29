@@ -30,8 +30,14 @@ jobs:
           SA_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
         run: |
           sleep 20
+          CONTAINER_ID=$(docker ps --filter "name=sqlserver" --format "{{.ID}}" | head -n1)
+          if [ -z "$CONTAINER_ID" ]; then
+            echo "SQL Server container not found" >&2
+            docker ps -a
+            exit 1
+          fi
           for i in {1..90}; do
-            if docker exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$SA_PASSWORD" -Q "SELECT 1" > /dev/null 2>&1; then
+            if docker exec "$CONTAINER_ID" /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$SA_PASSWORD" -Q "SELECT 1" > /dev/null 2>&1; then
               echo "SQL Server is ready"
               exit 0
             fi
