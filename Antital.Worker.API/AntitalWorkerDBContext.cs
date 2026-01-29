@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Antital.Worker.API;
 
-public class Antital.WorkerDBContext(DbContextOptions<Antital.WorkerDBContext> options) : DbContext(options)
+public class AntitalWorkerDbContext(DbContextOptions<AntitalWorkerDbContext> options) : DbContext(options)
 {
     public DbSet<TestModel> TestModels { get; set; }
 

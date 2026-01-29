@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Antital.Worker.API.Services;
 
-public class TestModelService(Antital.WorkerDBContext context) : ITestModelService
+public class TestModelService(AntitalWorkerDbContext context) : ITestModelService
 {
     public async Task<List<TestModel>> GetAll(CancellationToken cancellationToken)
     {

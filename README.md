@@ -96,6 +96,8 @@ dotnet test Antital.Test/Antital.Test.csproj
 ```
 The test connection string falls back to `TEST_DB_CONNECTION_STRING`; if not set, it will build one using `TEST_DB_PASSWORD` and throw if that password is missing.
 
+For CI we currently use `SA_PASSWORD=Admin1234!!` in the SQL Server service container health check. If you change the SA password, update both the GitHub Actions workflow (`.github/workflows/ci.yml`) and any local env vars accordingly.
+
 ### Viewing Logs
 
 ```bash

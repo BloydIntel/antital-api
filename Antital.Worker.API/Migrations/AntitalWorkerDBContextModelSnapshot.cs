@@ -9,8 +9,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace Antital.Worker.API.Migrations
 {
-    [DbContext(typeof(Antital.WorkerDBContext))]
-    partial class Antital.WorkerDBContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(AntitalWorkerDbContext))]
+    partial class AntitalWorkerDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {

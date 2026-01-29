@@ -10,7 +10,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace Antital.Worker.API.Migrations
 {
-    [DbContext(typeof(Antital.WorkerDBContext))]
+    [DbContext(typeof(AntitalWorkerDbContext))]
     [Migration("20240717133010_Init")]
     partial class Init
     {
