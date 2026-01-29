@@ -1,4 +1,4 @@
-﻿using BuildingBlocks.Domain.Interfaces;
+using BuildingBlocks.Domain.Interfaces;
 
 namespace Antital.Domain.Interfaces;
 
@@ -6,4 +6,5 @@ public interface IAntitalUnitOfWork : IUnitOfWork
 {
     public ISampleModelRepository SampleModelRepository { get; init; }
     public IAnotherSampleModelRepository AnotherSampleModelRepository { get; init; }
+    public IUserRepository UserRepository { get; init; }
 }

@@ -1,6 +1,8 @@
 using BuildingBlocks.Application.Jobs;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Antital.Infrastructure;
@@ -70,7 +72,29 @@ public static class AppUseExtensions
     {
         using var serviceScope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
         var context = serviceScope.ServiceProvider.GetService<AntitalDBContext>();
-        context?.Database.Migrate();
+        var env = serviceScope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+        var logger = serviceScope.ServiceProvider
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("DatabaseMigration");
+        
+        if (context != null)
+        {
+            try
+            {
+                if (env.IsEnvironment("Testing"))
+                {
+                    // Ensure schema matches migrations and avoid collisions from prior EnsureCreated
+                    context.Database.EnsureDeleted();
+                }
+
+                context.Database.Migrate();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Database migration failed during startup (Environment: {EnvironmentName}).", env.EnvironmentName);
+                throw;
+            }
+        }
 
         return app;
     }

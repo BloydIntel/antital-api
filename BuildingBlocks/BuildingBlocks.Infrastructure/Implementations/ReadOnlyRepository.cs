@@ -9,7 +9,7 @@ public class ReadOnlyRepository<TEntity>(
     DBContext dbContext
     ) : RepositoryProperties<TEntity>(dbContext), IReadOnlyRepository<TEntity> where TEntity : Entity
 {
-    public async Task<TEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public virtual async Task<TEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await SetAsNoTracking.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
     }

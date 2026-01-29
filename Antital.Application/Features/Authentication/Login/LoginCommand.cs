@@ -1,8 +1,9 @@
-﻿using BuildingBlocks.Application.Features;
+using Antital.Application.DTOs.Authentication;
+using BuildingBlocks.Application.Features;
 
 namespace Antital.Application.Features.Authentication.Login;
 
 public record LoginCommand(
-    string UserName,
+    string Email,
     string Password
-    ) : ICommandQuery<string>;
+) : ICommandQuery<AuthResponseDto>;

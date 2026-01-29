@@ -21,7 +21,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-builder.Services.AddDbContext<Antital.WorkerDBContext>(options =>
+builder.Services.AddDbContext<AntitalWorkerDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<ITestModelService, TestModelService>();
@@ -61,6 +61,6 @@ app.Run();
 static void MigrateDatabase(IApplicationBuilder app)
 {
     using var serviceScope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
-    var context = serviceScope.ServiceProvider.GetService<Antital.WorkerDBContext>();
+    var context = serviceScope.ServiceProvider.GetService<AntitalWorkerDbContext>();
     context?.Database.Migrate();
 }

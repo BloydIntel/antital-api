@@ -1,9 +1,11 @@
-﻿using Antital.Domain.Interfaces;
+using Antital.Domain.Interfaces;
 using Antital.Infrastructure.Repositories;
 using Antital.Infrastructure;
+using Antital.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using BuildingBlocks.Infrastructure.Implementations;
 using Antital.Application;
+using Antital.Application.Common.Security;
 using FluentValidation;
 using BuildingBlocks.Application.Behaviours;
 using MediatR;
@@ -21,7 +23,8 @@ public static class DependencyInjection
             .RegisterAuthentication()
             .RegisterMediatR()
             .RegisterValidator()
-            .RegisterSwagger();
+            .RegisterSwagger()
+            .RegisterServices(configuration);
 
         return services;
     }
@@ -48,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IAntitalUnitOfWork), typeof(AntitalUnitOfWork));
         services.AddScoped(typeof(ISampleModelRepository), typeof(SampleModelRepository));
         services.AddScoped(typeof(IAnotherSampleModelRepository), typeof(AnotherSampleModelRepository));
+        services.AddScoped(typeof(IUserRepository), typeof(UserRepository));
 
         return services;
     }
@@ -74,6 +78,20 @@ public static class DependencyInjection
     private static IServiceCollection RegisterSwagger(this IServiceCollection services)
     {
         services.AddSwaggerExamplesFromAssemblyOf(typeof(SampleModelMapper));
+
+        return services;
+    }
+
+    private static IServiceCollection RegisterServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Register EmailSettings
+        services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
+        
+        // Register authentication services
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
+        services.AddSingleton<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<ResetTokenProtector>();
+        services.AddScoped<IEmailService, EmailService>();
 
         return services;
     }

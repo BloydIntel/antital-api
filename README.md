@@ -73,11 +73,30 @@ BuildingBlocks/           # Shared infrastructure components
 ### Running Locally (without Docker)
 
 1. Ensure SQL Server LocalDB is installed
-2. Update connection string in `Antital.API/appsettings.Development.json`
-3. Run:
+2. Configure local secrets (JWT + Mailgun SMTP) via `dotnet user-secrets`:
+   ```bash
+   cd Antital.API
+   dotnet user-secrets set "Jwt:Key" "<your-dev-jwt-key>"
+   dotnet user-secrets set "EmailSettings:SmtpPassword" "<your-mailgun-smtp-password>"
+   ```
+   Keep `appsettings.Development.json` placeholders as-is to avoid committing secrets.
+3. Update connection string in `Antital.API/appsettings.Development.json` if needed
+4. Run:
    ```bash
    dotnet run --project Antital.API
    ```
+
+### Integration Tests (SQL Server in Docker)
+
+Set the SQL password via environment variable (no secrets in code):
+```bash
+export TEST_DB_PASSWORD=Admin1234!!   # or your own for the test container
+export TEST_DB_CONNECTION_STRING="Server=localhost,8600;Database=AntitalDB_Test;User Id=sa;Password=$TEST_DB_PASSWORD;TrustServerCertificate=True;"
+dotnet test Antital.Test/Antital.Test.csproj
+```
+The test connection string falls back to `TEST_DB_CONNECTION_STRING`; if not set, it will build one using `TEST_DB_PASSWORD` and throw if that password is missing.
+
+For CI we currently use `SA_PASSWORD=Admin1234!!` in the SQL Server service container health check. If you change the SA password, update both the GitHub Actions workflow (`.github/workflows/ci.yml`) and any local env vars accordingly.
 
 ### Viewing Logs
 
