@@ -36,7 +36,24 @@ jobs:
             docker ps -a
             exit 1
           fi
-          timeout 60s bash -c "until docker exec \"$CONTAINER_ID\" /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$SA_PASSWORD\" -Q 'SELECT 1' > /dev/null 2>&1; do sleep 2; done"
+
+          SQLCMD_PATH="/opt/mssql-tools18/bin/sqlcmd"
+          if ! docker exec "$CONTAINER_ID" test -x "$SQLCMD_PATH"; then
+            SQLCMD_PATH="/opt/mssql-tools/bin/sqlcmd"
+          fi
+
+          for i in {1..30}; do
+            if docker exec "$CONTAINER_ID" bash -c "\"$SQLCMD_PATH\" -S localhost -U sa -P \"$SA_PASSWORD\" -Q 'SELECT 1' -C" > /dev/null 2>&1; then
+              echo "SQL Server is ready (attempt $i)"
+              exit 0
+            fi
+            echo "Waiting for SQL Server... ($i/30)"
+            sleep 2
+          done
+
+          echo "SQL Server did not become ready in time" >&2
+          docker logs "$CONTAINER_ID" | tail -n 200
+          exit 1
 
       - name: Show SQL Server logs on failure
         if: failure()
