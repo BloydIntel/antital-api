@@ -17,8 +17,8 @@
 		  <DesignTime>True</DesignTime>
 		  <AutoGen>True</AutoGen>
 		</Compile>
-		<Compile Update="Messages.en.Designer.cs">
-			<DependentUpon>Messages.en.resx</DependentUpon>
+		<Compile Update="Messages.Designer.cs">
+			<DependentUpon>Messages.resx</DependentUpon>
 			<DesignTime>True</DesignTime>
 			<AutoGen>True</AutoGen>
 		</Compile>
@@ -33,8 +33,8 @@
 		  <LastGenOutput>Messages.fa.Designer.cs</LastGenOutput>
 		  <Generator>PublicResXFileCodeGenerator</Generator>
 		</EmbeddedResource>
-		<EmbeddedResource Update="Messages.en.resx">
-			<LastGenOutput>Messages.en.Designer.cs</LastGenOutput>
+		<EmbeddedResource Update="Messages.resx">
+			<LastGenOutput>Messages.Designer.cs</LastGenOutput>
 			<Generator>PublicResXFileCodeGenerator</Generator>
 		</EmbeddedResource>
 	</ItemGroup>
