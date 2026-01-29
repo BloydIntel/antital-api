@@ -52,3 +52,7 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Implementation plans (internal documentation)
+*_IMPLEMENTATION.md
+AUTHENTICATION_IMPLEMENTATION.md

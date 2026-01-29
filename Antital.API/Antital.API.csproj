@@ -1,13 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>c51bca0d-1a2f-4f79-9848-d49263bc4de9</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <InternalsVisibleTo Include="Antital.Test" />
+  </ItemGroup>
 
   <ItemGroup>
 	<PackageReference Include="Hangfire.SqlServer" Version="1.8.14" />

@@ -12,3 +12,6 @@ var app = builder.Build();
 app.BaseAppUse().AppUse(builder.Configuration);
 
 app.Run();
+
+// Make Program class accessible to test projects
+public partial class Program { }

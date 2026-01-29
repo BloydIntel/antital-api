@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using BuildingBlocks.Domain.Interfaces;
 using BuildingBlocks.Infrastructure.Implementations;
 using Hangfire;
@@ -17,6 +17,7 @@ using StackExchange.Redis;
 using Swashbuckle.AspNetCore.Filters;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace BuildingBlocks.API.Configs;
@@ -48,7 +49,11 @@ public static class DependencyInjection
     {
         services
             .AddControllers()
-            .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase; // Match API response format
+            });
 
         services.AddEndpointsApiExplorer();
 
@@ -81,12 +86,26 @@ public static class DependencyInjection
     public static IServiceCollection RegisterLog(this IServiceCollection services,
         IConfiguration configuration, IHostBuilder hostBuilder)
     {
-        Log.Logger = new LoggerConfiguration()
+        var loggerConfig = new LoggerConfiguration()
             .Enrich.FromLogContext()
             .WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Information)
             .WriteTo.File("../Logs/log.txt", restrictedToMinimumLevel: LogEventLevel.Information, rollingInterval: RollingInterval.Day)
-            .WriteTo.File("../Logs/logError.txt", restrictedToMinimumLevel: LogEventLevel.Error, rollingInterval: RollingInterval.Day)
-            .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri(configuration["ElasticSearch:Uri"]!))
+            .WriteTo.File("../Logs/logError.txt", restrictedToMinimumLevel: LogEventLevel.Error, rollingInterval: RollingInterval.Day);
+        
+        // Skip Elasticsearch sink in Testing environment (causes PipeWriter issues in WebApplicationFactory)
+        // Check environment from hostBuilder properties first, then fallback to config/env var
+        var environmentName = hostBuilder.Properties.TryGetValue("environment", out var envObj) 
+            ? envObj?.ToString() 
+            : configuration["ASPNETCORE_ENVIRONMENT"] 
+                ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") 
+                ?? "Production";
+        
+        var elasticSearchUri = configuration["ElasticSearch:Uri"];
+        if (environmentName != "Testing" 
+            && !string.IsNullOrWhiteSpace(elasticSearchUri) 
+            && Uri.TryCreate(elasticSearchUri, UriKind.Absolute, out var uri))
+        {
+            loggerConfig.WriteTo.Elasticsearch(new ElasticsearchSinkOptions(uri)
             {
                 AutoRegisterTemplate = true,
                 IndexFormat =
@@ -94,8 +113,10 @@ public static class DependencyInjection
                     $"{DateTime.UtcNow:yyyy-MM}",
                 NumberOfReplicas = 2,
                 NumberOfShards = 1
-            })
-            .CreateLogger();
+            });
+        }
+        
+        Log.Logger = loggerConfig.CreateLogger();
 
         services.AddLogging(loggingBuilder =>
         {

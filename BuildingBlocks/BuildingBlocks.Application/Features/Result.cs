@@ -1,8 +1,11 @@
-﻿namespace BuildingBlocks.Application.Features;
+using System.Text.Json.Serialization;
+
+namespace BuildingBlocks.Application.Features;
 
 public class Result<T> : Result
 {
-    public T? Value { get; private set; }
+    [JsonPropertyName("value")]
+    public T? Value { get; set; }
 
     public void AddValue(T value)
     {
