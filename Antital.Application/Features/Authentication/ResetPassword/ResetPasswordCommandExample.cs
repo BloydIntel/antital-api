@@ -7,8 +7,7 @@ public class ResetPasswordCommandExample : IExamplesProvider<ResetPasswordComman
     public ResetPasswordCommand GetExamples()
     {
         return new ResetPasswordCommand(
-            Email: "user@example.com",
-            Token: "abc123",
+            Token: "opaque-reset-token",
             NewPassword: "NewStrongP@ss1",
             ConfirmPassword: "NewStrongP@ss1"
         );

@@ -11,12 +11,15 @@ public class ResetPasswordCommandHandler(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
     IAntitalUnitOfWork unitOfWork,
-    ICurrentUser currentUser
+    ICurrentUser currentUser,
+    ResetTokenProtector tokenProtector
 ) : ICommandQueryHandler<ResetPasswordCommand>
 {
     public async Task<Result> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
     {
-        var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken)
+        var (email, rawToken) = tokenProtector.Unprotect(request.Token);
+
+        var user = await userRepository.GetByEmailAsync(email, cancellationToken)
             ?? throw new NotFoundException(Messages.NotFound);
 
         if (string.IsNullOrEmpty(user.PasswordResetTokenHash) || !user.PasswordResetTokenExpiry.HasValue)
@@ -35,7 +38,7 @@ public class ResetPasswordCommandHandler(
             });
         }
 
-        var incomingHash = TokenGenerator.HashToken(request.Token);
+        var incomingHash = TokenGenerator.HashToken(rawToken);
         if (!string.Equals(incomingHash, user.PasswordResetTokenHash, StringComparison.OrdinalIgnoreCase))
         {
             throw new BadRequestException("Reset token is invalid.", new Dictionary<string, string[]>

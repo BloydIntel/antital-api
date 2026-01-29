@@ -1,4 +1,5 @@
 using Antital.Application.Features.Authentication.ForgotPassword;
+using Antital.Application.Common.Security;
 using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
 using BuildingBlocks.Application.Features;
@@ -6,6 +7,8 @@ using BuildingBlocks.Domain.Interfaces;
 using FluentAssertions;
 using Moq;
 using Xunit;
+using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
 
 namespace Antital.Test.Application.Features.Authentication.ForgotPassword;
 
@@ -15,15 +18,31 @@ public class ForgotPasswordCommandHandlerTests
     private readonly Mock<IEmailService> _emailServiceMock = new();
     private readonly Mock<IAntitalUnitOfWork> _unitOfWorkMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
+    private readonly IConfiguration _configuration;
+    private readonly ResetTokenProtector _protector;
     private readonly ForgotPasswordCommandHandler _handler;
 
     public ForgotPasswordCommandHandlerTests()
     {
+        var inMemoryConfig = new Dictionary<string, string?>
+        {
+            { "Jwt:Key", "TESTING_RESET_TOKEN_KEY_32_BYTES_MINIMUM!!" },
+            { "Jwt:Issuer", "TestIssuer" },
+            { "Jwt:Audience", "TestAudience" },
+            { "Email:ResetExpiryHours", "2" }
+        };
+        _configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(inMemoryConfig!)
+            .Build();
+        _protector = new ResetTokenProtector(_configuration);
+
         _handler = new ForgotPasswordCommandHandler(
             _userRepositoryMock.Object,
             _emailServiceMock.Object,
             _unitOfWorkMock.Object,
-            _currentUserMock.Object
+            _currentUserMock.Object,
+            _configuration,
+            _protector
         );
     }
 

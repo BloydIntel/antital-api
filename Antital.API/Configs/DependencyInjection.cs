@@ -5,6 +5,7 @@ using Antital.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using BuildingBlocks.Infrastructure.Implementations;
 using Antital.Application;
+using Antital.Application.Common.Security;
 using FluentValidation;
 using BuildingBlocks.Application.Behaviours;
 using MediatR;
@@ -89,6 +90,7 @@ public static class DependencyInjection
         // Register authentication services
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<ResetTokenProtector>();
         services.AddScoped<IEmailService, EmailService>();
 
         return services;

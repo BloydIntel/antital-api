@@ -64,7 +64,8 @@ public class EmailService : IEmailService
 
     public Task SendPasswordResetEmailAsync(string email, string token, CancellationToken cancellationToken)
     {
-        var resetLink = $"{_settings.BaseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+        // Token is opaque and already contains user identity, no need to expose email in URL
+        var resetLink = $"{_settings.BaseUrl}/reset-password?token={Uri.EscapeDataString(token)}";
         var htmlBody = BuildEmailBody("reset_password.html", new Dictionary<string, string>
         {
             { "{{ email }}", email },
@@ -87,13 +88,12 @@ public class EmailService : IEmailService
         return SendEmailAsync(email, "Reset Your Password", htmlBody, cancellationToken);
     }
 
-    public Task SendWelcomeEmailAsync(string email, string username, CancellationToken cancellationToken, string? maskedPassword = null)
+    public Task SendWelcomeEmailAsync(string email, string username, CancellationToken cancellationToken)
     {
         var htmlBody = BuildEmailBody("new_account.html", new Dictionary<string, string>
         {
             { "{{ email }}", email },
             { "{{ username }}", username },
-            { "{{ password }}", maskedPassword ?? "********" },
             { "{{ link }}", _settings.BaseUrl ?? string.Empty },
             { "{{ project_name }}", "Antital" }
         },
@@ -102,6 +102,7 @@ public class EmailService : IEmailService
             <p>Welcome {username},</p>
             <p>Your account has been created.</p>
             <p>Username: {username}</p>
+            <p><a href="{_settings.BaseUrl}">Go to dashboard</a></p>
             </body></html>
             """);
 
@@ -183,27 +184,6 @@ public class EmailService : IEmailService
             <p>Reset your password using the link below:</p>
             <p><a href="{link}">Reset password</a></p>
             <p>This link will expire in {validHours} hours.</p>
-            </body></html>
-            """);
-    }
-
-    public string BuildNewAccountEmail(string email, string username, string password, string link, string projectName)
-    {
-        // TODO: Use for successful user sign-up welcome flow; avoid sending plaintext passwords once the flow is defined.
-        return BuildEmailBody("new_account.html", new Dictionary<string, string>
-        {
-            { "{{ email }}", email },
-            { "{{ username }}", username },
-            { "{{ password }}", password },
-            { "{{ link }}", link },
-            { "{{ project_name }}", projectName }
-        },
-        fallback: $"""
-            <html><body>
-            <p>Welcome {username},</p>
-            <p>Your account has been created.</p>
-            <p>Username: {username}<br/>Password: {password}</p>
-            <p><a href="{link}">Go to dashboard</a></p>
             </body></html>
             """);
     }

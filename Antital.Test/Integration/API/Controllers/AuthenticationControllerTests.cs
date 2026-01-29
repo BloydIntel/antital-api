@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Antital.Application.DTOs.Authentication;
+using Antital.Application.Common.Security;
 using Antital.Application.Features.Authentication.Login;
 using Antital.Application.Features.Authentication.SignUp;
 using Antital.Application.Features.Authentication.VerifyEmail;
@@ -14,6 +15,7 @@ using Antital.Test.Integration;
 using BuildingBlocks.Application.Features;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Security.Cryptography;
 using System.Text;
@@ -33,6 +35,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
     private readonly CustomWebApplicationFactory<Program> _factory;
     private readonly IServiceScope _scope;
     private readonly AntitalDBContext _context;
+    private readonly ResetTokenProtector _resetTokenProtector;
     
     // JSON options for deserializing API responses (handles camelCase and enums)
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -47,6 +50,8 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
         _client = factory.CreateClient();
         _scope = factory.Services.CreateScope();
         _context = _scope.ServiceProvider.GetRequiredService<AntitalDBContext>();
+        var configuration = _scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        _resetTokenProtector = new ResetTokenProtector(configuration);
         
         // Clean up before each test class runs to ensure fresh state
         CleanupDatabase();
@@ -606,9 +611,11 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
     {
         // Arrange: seed user with reset token
         var email = "reset-user@example.com";
-        var token = "valid-reset-token";
-        var hash = HashToken(token);
+        var rawToken = "valid-reset-token";
         var newPassword = "NewStrongP@ss1";
+        var expiry = DateTime.UtcNow.AddMinutes(30);
+        var hash = HashToken(rawToken);
+        var opaqueToken = _resetTokenProtector.Protect(email, rawToken, expiry);
 
         var user = new User
         {
@@ -616,7 +623,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             PasswordHash = "old-hash",
             UserType = UserTypeEnum.IndividualInvestor,
             PasswordResetTokenHash = hash,
-            PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(30),
+            PasswordResetTokenExpiry = expiry,
             HasAgreedToTerms = true,
             FirstName = "Reset",
             LastName = "User",
@@ -632,7 +639,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        var command = new ResetPasswordCommand(email, token, newPassword, newPassword);
+        var command = new ResetPasswordCommand(opaqueToken, newPassword, newPassword);
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/reset-password", command);
