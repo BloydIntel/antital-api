@@ -13,7 +13,7 @@ public class HealthCheckJob
                        retryAttempt => TimeSpan.FromSeconds(5 * retryAttempt),
                        (exception, timeSpan, retryCount, context) =>
                        {
-                           Console.WriteLine($"Retry CheckStatus: At {DateTime.Now}" +
+                           Console.WriteLine($"Retry CheckStatus: At {DateTime.UtcNow}" +
                                $", Attempt {retryCount}, Message = {exception.Message}");
                        }
                    );

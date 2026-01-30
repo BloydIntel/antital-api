@@ -1,3 +1,3 @@
 select count(*)
-from [AntitalWorkerDB].[dbo].[AnotherSampleModels]
-where IsDeleted = 0
+from "AnotherSampleModels"
+where "IsDeleted" = false

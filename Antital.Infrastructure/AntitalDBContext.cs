@@ -1,6 +1,7 @@
+using Antital.Domain.Models;
 using BuildingBlocks.Infrastructure.Implementations;
 using Microsoft.EntityFrameworkCore;
-using Antital.Domain.Models;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Antital.Infrastructure;
 
@@ -16,17 +17,43 @@ public class AntitalDBContext(
     {
         base.OnModelCreating(modelBuilder);
 
+        // Enforce UTC for all DateTime properties
+        var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
+            v => DateTime.SpecifyKind(v, v.Kind == DateTimeKind.Unspecified ? DateTimeKind.Utc : v.Kind).ToUniversalTime(),
+            v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+        var nullableDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
+            v => v.HasValue
+                ? DateTime.SpecifyKind(v.Value, v.Value.Kind == DateTimeKind.Unspecified ? DateTimeKind.Utc : v.Value.Kind).ToUniversalTime()
+                : v,
+            v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime))
+                {
+                    property.SetValueConverter(dateTimeConverter);
+                }
+                else if (property.ClrType == typeof(DateTime?))
+                {
+                    property.SetValueConverter(nullableDateTimeConverter);
+                }
+            }
+        }
+
         // Configure User entity
         modelBuilder.Entity<User>(entity =>
         {
             // Unique index on Email
             entity.HasIndex(e => e.Email)
                 .IsUnique()
-                .HasFilter("[IsDeleted] = 0");
+                .HasFilter("\"IsDeleted\" = false");
 
             // Index on EmailVerificationToken for performance
             entity.HasIndex(e => e.EmailVerificationToken)
-                .HasFilter("[EmailVerificationToken] IS NOT NULL AND [IsDeleted] = 0");
+                .HasFilter("\"EmailVerificationToken\" IS NOT NULL AND \"IsDeleted\" = false");
 
             // Configure string lengths
             entity.Property(e => e.Email)
@@ -75,7 +102,7 @@ public class AntitalDBContext(
                 .HasMaxLength(500);
 
             entity.HasIndex(e => e.RefreshTokenHash)
-                .HasFilter("[RefreshTokenHash] IS NOT NULL AND [IsDeleted] = 0");
+                .HasFilter("\"RefreshTokenHash\" IS NOT NULL AND \"IsDeleted\" = false");
         });
     }
 }

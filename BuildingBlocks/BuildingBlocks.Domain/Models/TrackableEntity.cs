@@ -12,20 +12,20 @@ public abstract class TrackableEntity : Entity
 
     public void Created(string createdBy)
     {
-        CreatedAt = DateTime.Now;
+        CreatedAt = DateTime.UtcNow;
         CreatedBy = createdBy;
     }
 
     public void Updated(string updatedBy)
     {
-        UpdatedAt = DateTime.Now;
+        UpdatedAt = DateTime.UtcNow;
         UpdatedBy = updatedBy;
     }
 
     public void Deleted(string deletedBy)
     {
         IsDeleted = true;
-        DeletedAt = DateTime.Now;
+        DeletedAt = DateTime.UtcNow;
         DeletedBy = deletedBy;
     }
 }

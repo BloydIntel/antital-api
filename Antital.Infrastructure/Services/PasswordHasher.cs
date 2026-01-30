@@ -22,6 +22,14 @@ public class PasswordHasher : IPasswordHasher
         if (!passwordHash.StartsWith("$2", StringComparison.Ordinal))
             return false;
 
-        return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[PasswordHasher] BCrypt.Verify failed: {ex.Message}");
+            return false;
+        }
     }
 }

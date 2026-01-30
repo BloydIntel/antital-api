@@ -13,10 +13,11 @@
     <InternalsVisibleTo Include="Antital.Test" />
   </ItemGroup>
 
-  <ItemGroup>
+ <ItemGroup>
 	<PackageReference Include="Hangfire.SqlServer" Version="1.8.14" />
 	<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
 	<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.8" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
 	<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.19.6" />
 	<PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
 	<PackageReference Include="Serilog" Version="3.1.1" />
