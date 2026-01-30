@@ -11,13 +11,7 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "AnotherProject Swagger",
-        Contact = new OpenApiContact
-        {
-            Name = "Behzad Dara",
-            Email = "Behzad.Dara.99@gmail.com",
-            Url = new Uri("https://www.linkedin.com/in/behzaddara/")
-        }
+        Title = "Antital API"
     });
 });
 

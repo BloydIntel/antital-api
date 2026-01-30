@@ -179,39 +179,27 @@ public static class DependencyInjection
         {
             c.SwaggerDoc("v1", new OpenApiInfo
             {
-                Title = "Project Swagger",
+                Title = "Antital API",
                 Version = "v1",
-                Description = Resources.ConstantTexts.SwaggerDescription,
-                Contact = new OpenApiContact
-                {
-                    Name = "Behzad Dara",
-                    Email = "Behzad.Dara.99@gmail.com",
-                    Url = new Uri("https://www.linkedin.com/in/behzaddara/")
-                }
+                Description = Resources.ConstantTexts.SwaggerDescription
             });
-
-            /*c.SwaggerDoc("v2", new OpenApiInfo
-            {
-                Title = "Project Swagger",
-                Version = "v2",
-                Description = Resources.ConstantTexts.SwaggerDescription,
-                Contact = new OpenApiContact
-                {
-                    Name = "Behzad Dara",
-                    Email = "Behzad.Dara.99@gmail.com",
-                    Url = new Uri("https://www.linkedin.com/in/behzaddara/")
-                }
-            });*/
 
             c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 In = ParameterLocation.Header,
-                Description = "Please insert JWT into field",
+                Description = "Please insert JWT into the Authorization header using the Bearer scheme",
                 Name = "Authorization",
                 Type = SecuritySchemeType.Http,
                 BearerFormat = "JWT",
                 Scheme = "bearer"
             });
+
+            /*c.SwaggerDoc("v2", new OpenApiInfo
+            {
+                Title = "Antital API",
+                Version = "v2",
+                Description = Resources.ConstantTexts.SwaggerDescription
+            });*/
 
             /*c.DocInclusionPredicate((version, apiDesc) =>
             {
@@ -226,7 +214,6 @@ public static class DependencyInjection
             });*/
 
             c.OperationFilter<SecurityRequirementsOperationFilter>();
-
             c.OperationFilter<AddAcceptLanguageHeaderParameter>();
 
             c.ExampleFilters();

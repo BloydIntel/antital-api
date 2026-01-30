@@ -21,15 +21,15 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
         
         builder.ConfigureAppConfiguration((context, config) =>
         {
-            // Override connection string to use Docker SQL Server test database
-            // Make sure Docker container is running: docker-compose up antitaldb
-            // Port is mapped to 8600:1433, so use localhost,8600 from host machine
+            // Override connection string to use Docker PostgreSQL test database
+            // Make sure Docker container is running: e.g., docker-compose up postgres
+            // Default port 5432
             // Password is injected via environment variable TEST_DB_PASSWORD to avoid hardcoding secrets
-            var testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD")
-                ?? "Admin1234!!";
+            var testDbUser = Environment.GetEnvironmentVariable("TEST_DB_USER") ?? "crownedprinz";
+            var testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD") ?? string.Empty;
 
             var testConnectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING") 
-                ?? $"Server=localhost,8600;Database=AntitalDB_Test;User Id=sa;Password={testDbPassword};TrustServerCertificate=True;";
+                ?? $"Host=localhost;Port=5432;Database=antitaldb_test;Username={testDbUser};Password={testDbPassword}";
             
             // Add test configuration LAST so it overrides appsettings
             // Use null instead of empty string to ensure Elasticsearch sink is skipped
@@ -63,19 +63,19 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
                 services.Remove(dbContextDescriptor);
             }
 
-            // Add Docker SQL Server database for testing (matches production)
-            // Port is mapped to 8600:1433, so use localhost,8600 from host machine
+            // Add Docker PostgreSQL database for testing
+            // Port is mapped to 5432, so use localhost:5432 from host machine
             // Password is injected via environment variable TEST_DB_PASSWORD to avoid hardcoding secrets
-            var testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD")
-                ?? "Admin1234!!";
+            var testDbUser = Environment.GetEnvironmentVariable("TEST_DB_USER") ?? "crownedprinz";
+            var testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD") ?? string.Empty;
 
             var testConnectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING") 
-                ?? $"Server=localhost,8600;Database=AntitalDB_Test;User Id=sa;Password={testDbPassword};TrustServerCertificate=True;";
+                ?? $"Host=localhost;Port=5432;Database=antitaldb_test;Username={testDbUser};Password={testDbPassword}";
             
             services.AddDbContext<AntitalDBContext>(options =>
             {
-                options.UseSqlServer(testConnectionString, sqlOptions => 
-                    sqlOptions.MigrationsAssembly("Antital.Infrastructure"));
+                options.UseNpgsql(testConnectionString, npgsqlOptions => 
+                    npgsqlOptions.MigrationsAssembly("Antital.Infrastructure"));
             });
 
             services.AddScoped<DBContext>(provider => provider.GetService<AntitalDBContext>()!);

@@ -15,10 +15,11 @@ public class PasswordHasher : IPasswordHasher
 
     public bool VerifyPassword(string password, string passwordHash)
     {
-        if (string.IsNullOrEmpty(password))
+        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(passwordHash))
             return false;
 
-        if (string.IsNullOrEmpty(passwordHash))
+        // Fast-fail if the stored hash is not a BCrypt hash (avoids noisy exceptions/logs)
+        if (!passwordHash.StartsWith("$2", StringComparison.Ordinal))
             return false;
 
         try
@@ -27,8 +28,7 @@ public class PasswordHasher : IPasswordHasher
         }
         catch (Exception ex)
         {
-            // Log and fail closed if hash is malformed or bcrypt throws
-            Console.Error.WriteLine($"Password verification failed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[PasswordHasher] BCrypt.Verify failed: {ex.Message}");
             return false;
         }
     }
