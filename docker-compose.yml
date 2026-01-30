@@ -1,17 +1,29 @@
-version: '3.4'
-
 services:
 
-  antitaldb:
-    # Using Azure SQL Edge for ARM64 Mac compatibility (or use platform: linux/amd64 for x86 emulation)
-    image: mcr.microsoft.com/azure-sql-edge:latest
-    platform: linux/amd64  # Required for ARM Mac compatibility
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: antitaldb
+    ports:
+      - "55432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
 
   antital.api:
     image: ${DOCKER_REGISTRY-}antitalapi
     build:
       context: .
       dockerfile: Antital.API/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8001
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=antitaldb;Username=postgres;Password=postgres;
+    depends_on:
+      - db
+    ports:
+      - "18001:8001"
 
   # ============================================
   # WORKER SERVICES - COMMENTED FOR MINIMAL SETUP
@@ -83,7 +95,4 @@ services:
   #   image: portainer/portainer-ce
 
 volumes:
-  portainer_data:
-  postgres_data:
-  pgadmin_data:
-  elasticsearch-data:
+  pgdata:

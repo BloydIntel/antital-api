@@ -59,7 +59,7 @@ public static class DependencyInjection
     private static IServiceCollection RegisterDBContext(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<AntitalDBContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")),
+            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")),
             ServiceLifetime.Scoped);
         services.AddScoped<DBContext>(provider => provider.GetService<AntitalDBContext>()!);
 

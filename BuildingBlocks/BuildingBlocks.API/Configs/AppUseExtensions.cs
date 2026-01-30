@@ -6,6 +6,7 @@ using Hangfire.Dashboard;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Http;
 using Prometheus;
 using System.Net.Http.Headers;
@@ -70,16 +71,10 @@ public static class AppUseExtensions
 
     public static IApplicationBuilder UsingLocalization(this IApplicationBuilder app)
     {
-        var supportedCultures = Enum
-            .GetValues(typeof(Languages))
-            .Cast<Languages>()
-            .Select(x => x.ToString())
-            .ToArray();
-
         var localizationOptions = new RequestLocalizationOptions()
-            .SetDefaultCulture(supportedCultures[0])
-            .AddSupportedCultures(supportedCultures)
-            .AddSupportedUICultures(supportedCultures);
+            .SetDefaultCulture("en")
+            .AddSupportedCultures("en")
+            .AddSupportedUICultures("en");
 
         app.UseRequestLocalization(localizationOptions);
 

@@ -13,53 +13,44 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: 1
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
     services:
-      sqlserver:
-        image: mcr.microsoft.com/mssql/server:2022-latest
+      postgres:
+        image: postgres:15
         env:
-          SA_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
-          ACCEPT_EULA: Y
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: antitaldb_test
         ports:
-          - 1433:1433
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Wait for SQL Server
-        env:
-          SA_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+      - name: Wait for Postgres
         run: |
-          sleep 10
-          CONTAINER_ID=$(docker ps --filter "name=sqlserver" --format "{{.ID}}" | head -n1)
-          if [ -z "$CONTAINER_ID" ]; then
-            echo "SQL Server container not found" >&2
-            docker ps -a
-            exit 1
-          fi
-
-          SQLCMD_PATH="/opt/mssql-tools18/bin/sqlcmd"
-          if ! docker exec "$CONTAINER_ID" test -x "$SQLCMD_PATH"; then
-            SQLCMD_PATH="/opt/mssql-tools/bin/sqlcmd"
-          fi
-
           for i in {1..30}; do
-            if docker exec "$CONTAINER_ID" bash -c "\"$SQLCMD_PATH\" -S localhost -U sa -P \"$SA_PASSWORD\" -Q 'SELECT 1' -C" > /dev/null 2>&1; then
-              echo "SQL Server is ready (attempt $i)"
+            if pg_isready -h localhost -p 5432 -U postgres > /dev/null 2>&1; then
+              echo "Postgres is ready (attempt $i)"
               exit 0
             fi
-            echo "Waiting for SQL Server... ($i/30)"
+            echo "Waiting for Postgres... ($i/30)"
             sleep 2
           done
 
-          echo "SQL Server did not become ready in time" >&2
-          docker logs "$CONTAINER_ID" | tail -n 200
+          echo "Postgres did not become ready in time" >&2
+          docker logs $(docker ps --filter "name=postgres" --format "{{.ID}}" | head -n1) | tail -n 200
           exit 1
 
-      - name: Show SQL Server logs on failure
+      - name: Show Postgres logs on failure
         if: failure()
         run: |
           docker ps -a
-          docker logs $(docker ps --filter "name=sqlserver" --format "{{.ID}}" | head -n1)
+          docker logs $(docker ps --filter "name=postgres" --format "{{.ID}}" | head -n1)
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -74,6 +65,6 @@ jobs:
 
       - name: Test
         env:
-          TEST_DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
-          TEST_DB_CONNECTION_STRING: Server=localhost,1433;Database=AntitalDB_Test;User Id=sa;Password=${{ secrets.TEST_DB_PASSWORD }};TrustServerCertificate=True;
+          TEST_DB_CONNECTION_STRING: Host=localhost;Port=5432;Database=antitaldb_test;Username=postgres;Password=postgres;
+          ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=antitaldb_test;Username=postgres;Password=postgres;
         run: dotnet test Antital.Test/Antital.Test.csproj --no-build -c Release

@@ -73,7 +73,7 @@ public class GlobalExceptionHandler(RequestDelegate next, ILogger<GlobalExceptio
             "at {datetime}, " +
             "with status code {statusCode} " +
             "and exception {exception}"
-            , DateTime.Now, statusCode, ex);
+            , DateTime.UtcNow, statusCode, ex);
 
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
