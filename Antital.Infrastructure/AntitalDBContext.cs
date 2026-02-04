@@ -9,9 +9,10 @@ public class AntitalDBContext(
     DbContextOptions<AntitalDBContext> options
     ) : DBContext(options)
 {
-    public DbSet<SampleModel> SampleModels { get; set; }
-    public DbSet<AnotherSampleModel> AnotherSampleModels { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<UserOnboarding> UserOnboardings { get; set; }
+    public DbSet<UserInvestmentProfile> UserInvestmentProfiles { get; set; }
+    public DbSet<UserKyc> UserKycs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -103,6 +104,27 @@ public class AntitalDBContext(
 
             entity.HasIndex(e => e.RefreshTokenHash)
                 .HasFilter("\"RefreshTokenHash\" IS NOT NULL AND \"IsDeleted\" = false");
+        });
+
+        // UserOnboarding: one per user (unique UserId per flow if we scope by flow later)
+        modelBuilder.Entity<UserOnboarding>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.UserId).IsUnique();
+        });
+
+        // UserInvestmentProfile: one per user
+        modelBuilder.Entity<UserInvestmentProfile>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.UserId).IsUnique();
+        });
+
+        // UserKyc: one per user
+        modelBuilder.Entity<UserKyc>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.UserId).IsUnique();
         });
     }
 }

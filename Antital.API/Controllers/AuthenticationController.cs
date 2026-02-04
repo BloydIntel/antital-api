@@ -20,6 +20,7 @@ using Antital.Application.Features.Users.DeleteUser;
 using Antital.Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using BuildingBlocks.Application.Features;
+using System.Security.Claims;
 
 namespace Antital.API.Controllers;
 
@@ -121,6 +122,7 @@ public class AuthenticationController(IMediator mediator) : BaseController
 
 [SwaggerTag("Users Service")]
 [Route("api/users")]
+[Authorize] // Require authenticated user for all user endpoints unless explicitly allowed
 public class UsersController(IMediator mediator) : BaseController
 {
     [HttpGet]
@@ -170,6 +172,17 @@ public class UsersController(IMediator mediator) : BaseController
     [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
+        var isAdmin = User.HasClaim("Permissions", "CanDelete");
+        var currentEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name;
+
+        if (!isAdmin)
+        {
+            // Allow self-delete only: verify the requested user matches the current principal
+            var lookup = await mediator.Send(new GetUserByIdQuery(id), cancellationToken);
+            if (!lookup.IsSuccess || lookup.Value?.Email is null || !lookup.Value.Email.Equals(currentEmail, StringComparison.OrdinalIgnoreCase))
+                return Forbid();
+        }
+
         var result = await mediator.Send(new DeleteUserCommand(id), cancellationToken);
         return ApiResult(result);
     }

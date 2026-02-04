@@ -3,6 +3,7 @@ using System;
 using Antital.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Antital.Infrastructure.Migrations
 {
     [DbContext(typeof(AntitalDBContext))]
-    partial class AntitalDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260204034220_AddOnboardingTables")]
+    partial class AddOnboardingTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -159,9 +162,6 @@ namespace Antital.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<bool?>("AdequateLiquidityForLosses")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("AnnualIncomeRange")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -169,22 +169,7 @@ namespace Antital.Infrastructure.Migrations
                     b.Property<bool?>("AwareOfLimitedLiquidity")
                         .HasColumnType("boolean");
 
-                    b.Property<bool?>("AwareOfLimitedLiquidityHni")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool?>("AwareOfLimitedLiquiditySophisticated")
-                        .HasColumnType("boolean");
-
                     b.Property<bool?>("CanAffordToLoseWithoutAffectingStability")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool?>("ConfirmCrowdfundingAssessment")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool?>("ConfirmSecHniCriteria")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool?>("ConfirmSecSophisticatedCriteria")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime>("CreatedAt")
@@ -207,38 +192,17 @@ namespace Antital.Infrastructure.Migrations
                     b.Property<decimal?>("HighRiskAllocationPast12MonthsPercent")
                         .HasColumnType("numeric");
 
-                    b.Property<bool?>("InvestedInPrivateMarketsBefore")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("InvestmentTypes")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
                     b.Property<int>("InvestorCategory")
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<bool?>("NetAssetsExceed100m")
-                        .HasColumnType("boolean");
-
-                    b.Property<int?>("NetInvestmentAssetsRange")
-                        .HasColumnType("integer");
-
                     b.Property<decimal?>("NetInvestmentAssetsValue")
                         .HasColumnType("numeric");
 
                     b.Property<bool?>("ReadRiskDisclosureAndSecRules")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("SourceOfWealth")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("SourceOfWealthOther")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.Property<bool?>("UnderstandsCrowdfundingIsHighRisk")
                         .HasColumnType("boolean");
@@ -254,9 +218,6 @@ namespace Antital.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("YearsActivelyInvesting")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -302,10 +263,6 @@ namespace Antital.Infrastructure.Migrations
 
                     b.Property<int>("IdType")
                         .HasColumnType("integer");
-
-                    b.Property<string>("IncomeVerificationDocumentTypes")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("IncomeVerificationPathOrKey")
                         .HasMaxLength(500)
