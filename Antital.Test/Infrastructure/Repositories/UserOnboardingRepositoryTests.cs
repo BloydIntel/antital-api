@@ -95,7 +95,6 @@ public class UserOnboardingRepositoryTests : IDisposable
             CurrentStep = OnboardingStep.InvestorCategory,
             Status = OnboardingStatus.Draft
         };
-        onboarding.Created("TestUser");
 
         await _repository.AddAsync(onboarding, CancellationToken.None);
         await _dbContext.SaveChangesAsync(CancellationToken.None);
@@ -121,7 +120,6 @@ public class UserOnboardingRepositoryTests : IDisposable
         await _dbContext.SaveChangesAsync(CancellationToken.None);
 
         onboarding.CurrentStep = OnboardingStep.Kyc;
-        onboarding.Updated("TestUser");
         await _repository.UpdateAsync(onboarding, CancellationToken.None);
         await _dbContext.SaveChangesAsync(CancellationToken.None);
 
@@ -149,6 +147,46 @@ public class UserOnboardingRepositoryTests : IDisposable
         var result = await _repository.GetByUserIdAsync(1, CancellationToken.None);
 
         result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetOrCreateForUserAsync_WhenNoRecord_CreatesAndReturns()
+    {
+        await CreateUserAsync(1);
+
+        var result = await _repository.GetOrCreateForUserAsync(1, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.UserId.Should().Be(1);
+        result.CurrentStep.Should().Be(OnboardingStep.InvestorCategory);
+        result.Status.Should().Be(OnboardingStatus.Draft);
+        result.FlowType.Should().Be(OnboardingFlowType.IndividualInvestor);
+        var count = await _dbContext.UserOnboardings.CountAsync(e => e.UserId == 1 && !e.IsDeleted);
+        count.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetOrCreateForUserAsync_WhenRecordExists_ReturnsExisting()
+    {
+        var user = await CreateUserAsync(1);
+        var existing = new UserOnboarding
+        {
+            UserId = user.Id,
+            FlowType = OnboardingFlowType.IndividualInvestor,
+            CurrentStep = OnboardingStep.Kyc,
+            Status = OnboardingStatus.Draft
+        };
+        existing.Created("TestUser");
+        _dbContext.UserOnboardings.Add(existing);
+        await _dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var result = await _repository.GetOrCreateForUserAsync(1, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.Id.Should().Be(existing.Id);
+        result.CurrentStep.Should().Be(OnboardingStep.Kyc);
+        var count = await _dbContext.UserOnboardings.CountAsync(e => e.UserId == 1 && !e.IsDeleted);
+        count.Should().Be(1);
     }
 
     public void Dispose() => _dbContext.Dispose();

@@ -172,7 +172,7 @@ public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         return user;
     }

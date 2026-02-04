@@ -13,7 +13,6 @@ namespace Antital.Test.Application.Features.Onboarding;
 public class SubmitOnboardingCommandHandlerTests
 {
     private readonly Mock<IOnboardingUserAccess> _userAccessMock = new();
-    private readonly Mock<IAntitalCurrentUser> _currentUserMock = new();
     private readonly Mock<IAntitalUnitOfWork> _unitOfWorkMock = new();
     private readonly Mock<IUserOnboardingRepository> _onboardingRepoMock = new();
     private readonly Mock<IUserInvestmentProfileRepository> _profileRepoMock = new();
@@ -40,13 +39,11 @@ public class SubmitOnboardingCommandHandlerTests
     {
         _handler = new SubmitOnboardingCommandHandler(
             _userAccessMock.Object,
-            _currentUserMock.Object,
             _unitOfWorkMock.Object,
             _onboardingRepoMock.Object,
             _profileRepoMock.Object
         );
         _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, VerifiedUser));
-        _currentUserMock.Setup(x => x.UserName).Returns("u@test.com");
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
     }
 

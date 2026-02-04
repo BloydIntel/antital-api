@@ -165,19 +165,18 @@ public class UsersController(IMediator mediator) : BaseController
         return ApiResult(result);
     }
 
-    [Authorize(Policy = "CanDeletePolicy")]
+    [Authorize]
     [HttpDelete("{id:int}")]
-    [SwaggerOperation("Delete User", "Delete a user (admin only)")]
+    [SwaggerOperation("Delete User", "Admins can delete any user; users can delete only their own account.")]
     [SwaggerResponse(StatusCodes.Status200OK, "Deleted", typeof(Result))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not allowed to delete this user", typeof(void))]
     [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         var isAdmin = User.HasClaim("Permissions", "CanDelete");
-        var currentEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name;
-
         if (!isAdmin)
         {
-            // Allow self-delete only: verify the requested user matches the current principal
+            var currentEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name;
             var lookup = await mediator.Send(new GetUserByIdQuery(id), cancellationToken);
             if (!lookup.IsSuccess || lookup.Value?.Email is null || !lookup.Value.Email.Equals(currentEmail, StringComparison.OrdinalIgnoreCase))
                 return Forbid();

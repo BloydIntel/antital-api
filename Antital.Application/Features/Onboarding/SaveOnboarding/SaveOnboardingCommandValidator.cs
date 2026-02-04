@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Antital.Domain.Enums;
 using FluentValidation;
 
@@ -5,6 +6,12 @@ namespace Antital.Application.Features.Onboarding.SaveOnboarding;
 
 public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCommand>
 {
+    /// <summary>NIN (National Identification Number): exactly 11 digits.</summary>
+    private static readonly Regex NinFormat = new(@"^\d{11}$", RegexOptions.Compiled);
+
+    /// <summary>BVN (Bank Verification Number): exactly 11 digits.</summary>
+    private static readonly Regex BvnFormat = new(@"^\d{11}$", RegexOptions.Compiled);
+
     public SaveOnboardingCommandValidator()
     {
         RuleFor(x => x.Step).IsInEnum();
@@ -20,6 +27,16 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
         RuleFor(x => x.KycPayload)
             .NotNull()
             .When(x => x.Step == OnboardingStep.Kyc);
+
+        When(x => x.Step == OnboardingStep.Kyc && x.KycPayload != null, () =>
+        {
+            RuleFor(x => x.KycPayload!.Nin)
+                .Must(nin => string.IsNullOrWhiteSpace(nin) || NinFormat.IsMatch(nin))
+                .WithMessage("NIN must be exactly 11 digits.");
+            RuleFor(x => x.KycPayload!.Bvn)
+                .Must(bvn => string.IsNullOrWhiteSpace(bvn) || BvnFormat.IsMatch(bvn))
+                .WithMessage("BVN must be exactly 11 digits.");
+        });
 
         When(x => x.Step == OnboardingStep.InvestmentProfile && x.InvestmentProfilePayload != null, () =>
         {

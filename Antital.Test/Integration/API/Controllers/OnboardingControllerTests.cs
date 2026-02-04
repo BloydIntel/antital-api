@@ -147,10 +147,8 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
             CurrentStep = OnboardingStep.InvestmentProfile,
             Status = OnboardingStatus.Draft
         };
-        onboarding.Created("Test");
         _context.UserOnboardings.Add(onboarding);
         var profile = new UserInvestmentProfile { UserId = user.Id, InvestorCategory = InvestorCategory.Retail };
-        profile.Created("Test");
         _context.UserInvestmentProfiles.Add(profile);
         await _context.SaveChangesAsync();
 
@@ -186,7 +184,6 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
         await _context.SaveChangesAsync();
 
         var profile = new UserInvestmentProfile { UserId = user.Id, InvestorCategory = InvestorCategory.Retail };
-        profile.Created("Test");
         _context.UserInvestmentProfiles.Add(profile);
         var onboarding = new UserOnboarding
         {
@@ -195,7 +192,6 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
             CurrentStep = OnboardingStep.Review,
             Status = OnboardingStatus.Draft
         };
-        onboarding.Created("Test");
         _context.UserOnboardings.Add(onboarding);
         await _context.SaveChangesAsync();
 
@@ -223,7 +219,6 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
             CurrentStep = OnboardingStep.InvestorCategory,
             Status = OnboardingStatus.Draft
         };
-        onboarding.Created("Test");
         _context.UserOnboardings.Add(onboarding);
         await _context.SaveChangesAsync();
 
@@ -276,7 +271,6 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
             ResidentialAddress = residentialAddress,
             HasAgreedToTerms = true
         };
-        user.Created("System");
         _context.Users.Add(user);
         return user;
     }

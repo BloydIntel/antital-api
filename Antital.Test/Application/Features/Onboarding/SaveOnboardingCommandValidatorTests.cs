@@ -107,15 +107,69 @@ public class SaveOnboardingCommandValidatorTests
     }
 
     [Fact]
-    public void KycStep_WithPayload_Passes()
+    public void KycStep_WithValidPayload_Passes()
     {
         var cmd = new SaveOnboardingCommand(
             OnboardingStep.Kyc,
             null,
             null,
-            new KycPayload(KycIdType.NationalIdCard, "123", "456", null, null, null, null, null)
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", null, null, null, null, null)
         );
         var result = _validator.TestValidate(cmd);
         result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void KycStep_WithValidPayload_NullNinAndBvn_Passes()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, null, null, "path", null, null, null, null)
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void KycStep_WithInvalidNin_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "123", "21234567890", null, null, null, null, null)
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.KycPayload!.Nin)
+            .WithErrorMessage("NIN must be exactly 11 digits.");
+    }
+
+    [Fact]
+    public void KycStep_WithInvalidBvn_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "456", null, null, null, null, null)
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.KycPayload!.Bvn)
+            .WithErrorMessage("BVN must be exactly 11 digits.");
+    }
+
+    [Fact]
+    public void KycStep_WithNonDigitNin_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "1234567890a", "21234567890", null, null, null, null, null)
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.KycPayload!.Nin);
     }
 }

@@ -14,7 +14,6 @@ namespace Antital.Test.Application.Features.Onboarding;
 public class SaveOnboardingCommandHandlerTests
 {
     private readonly Mock<IOnboardingUserAccess> _userAccessMock = new();
-    private readonly Mock<IAntitalCurrentUser> _currentUserMock = new();
     private readonly Mock<IAntitalUnitOfWork> _unitOfWorkMock = new();
     private readonly Mock<IUserOnboardingRepository> _onboardingRepoMock = new();
     private readonly Mock<IUserInvestmentProfileRepository> _profileRepoMock = new();
@@ -43,7 +42,6 @@ public class SaveOnboardingCommandHandlerTests
     {
         _handler = new SaveOnboardingCommandHandler(
             _userAccessMock.Object,
-            _currentUserMock.Object,
             _unitOfWorkMock.Object,
             _onboardingRepoMock.Object,
             _profileRepoMock.Object,
@@ -51,7 +49,6 @@ public class SaveOnboardingCommandHandlerTests
             _kycVerificationServiceMock.Object
         );
         _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, VerifiedUser));
-        _currentUserMock.Setup(x => x.UserName).Returns("u@test.com");
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _kycVerificationServiceMock
             .Setup(x => x.ProcessAsync(It.IsAny<KycVerificationInput>(), It.IsAny<CancellationToken>()))
@@ -100,7 +97,8 @@ public class SaveOnboardingCommandHandlerTests
     [Fact]
     public async Task Handle_InvestorCategoryStep_CreatesOnboardingAndProfile_Success()
     {
-        _onboardingRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserOnboarding?)null);
+        var onboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.InvestorCategory, Status = OnboardingStatus.Draft };
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(onboarding);
         _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserInvestmentProfile?)null);
 
         var cmd = new SaveOnboardingCommand(
@@ -113,7 +111,7 @@ public class SaveOnboardingCommandHandlerTests
         var result = await _handler.Handle(cmd, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        _onboardingRepoMock.Verify(x => x.AddAsync(It.IsAny<UserOnboarding>(), It.IsAny<CancellationToken>()), Times.Once);
+        _onboardingRepoMock.Verify(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _onboardingRepoMock.Verify(x => x.UpdateAsync(It.Is<UserOnboarding>(e => e.CurrentStep == OnboardingStep.InvestmentProfile), It.IsAny<CancellationToken>()), Times.Once);
         _profileRepoMock.Verify(x => x.AddAsync(It.Is<UserInvestmentProfile>(p => p.InvestorCategory == InvestorCategory.Retail), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -123,7 +121,7 @@ public class SaveOnboardingCommandHandlerTests
     {
         var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.InvestorCategory, Status = OnboardingStatus.Draft };
         var existingProfile = new UserInvestmentProfile { UserId = 1, InvestorCategory = InvestorCategory.Retail };
-        _onboardingRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
         _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingProfile);
 
         var cmd = new SaveOnboardingCommand(
@@ -152,20 +150,20 @@ public class SaveOnboardingCommandHandlerTests
     public async Task Handle_KycStep_AddsOrUpdatesKyc_Success()
     {
         var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.Kyc, Status = OnboardingStatus.Draft };
-        _onboardingRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
         _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserKyc?)null);
 
         var cmd = new SaveOnboardingCommand(
             OnboardingStep.Kyc,
             null,
             null,
-            new KycPayload(KycIdType.NationalIdCard, "123", "456", "path1", "path2", null, null, null)
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", "path1", "path2", null, null, null)
         );
 
         var result = await _handler.Handle(cmd, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        _kycRepoMock.Verify(x => x.AddAsync(It.Is<UserKyc>(k => k.Nin == "123" && k.Bvn == "456"), It.IsAny<CancellationToken>()), Times.Once);
+        _kycRepoMock.Verify(x => x.AddAsync(It.Is<UserKyc>(k => k.Nin == "12345678901" && k.Bvn == "21234567890"), It.IsAny<CancellationToken>()), Times.Once);
         _onboardingRepoMock.Verify(x => x.UpdateAsync(It.Is<UserOnboarding>(e => e.CurrentStep == OnboardingStep.Review), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

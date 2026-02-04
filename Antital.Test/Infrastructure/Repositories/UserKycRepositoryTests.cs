@@ -95,7 +95,6 @@ public class UserKycRepositoryTests : IDisposable
             IdType = KycIdType.InternationalPassport,
             GovernmentIdDocumentPathOrKey = "path/to/doc"
         };
-        kyc.Created("TestUser");
 
         await _repository.AddAsync(kyc, CancellationToken.None);
         await _dbContext.SaveChangesAsync(CancellationToken.None);
@@ -115,7 +114,6 @@ public class UserKycRepositoryTests : IDisposable
         await _dbContext.SaveChangesAsync(CancellationToken.None);
 
         kyc.Nin = "222";
-        kyc.Updated("TestUser");
         await _repository.UpdateAsync(kyc, CancellationToken.None);
         await _dbContext.SaveChangesAsync(CancellationToken.None);
 

@@ -94,7 +94,6 @@ public class UserInvestmentProfileRepositoryTests : IDisposable
             InvestorCategory = InvestorCategory.Sophisticated,
             HighRiskAllocationPast12MonthsPercent = 10m
         };
-        profile.Created("TestUser");
 
         await _repository.AddAsync(profile, CancellationToken.None);
         await _dbContext.SaveChangesAsync(CancellationToken.None);
@@ -118,7 +117,6 @@ public class UserInvestmentProfileRepositoryTests : IDisposable
         await _dbContext.SaveChangesAsync(CancellationToken.None);
 
         profile.InvestorCategory = InvestorCategory.HighNetWorth;
-        profile.Updated("TestUser");
         await _repository.UpdateAsync(profile, CancellationToken.None);
         await _dbContext.SaveChangesAsync(CancellationToken.None);
 
