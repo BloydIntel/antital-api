@@ -5,12 +5,14 @@ namespace Antital.Infrastructure;
 
 public class AntitalUnitOfWork(
     DBContext dbContext,
-    ISampleModelRepository sampleModelRepository,
-    IAnotherSampleModelRepository anotherSampleModelRepository,
-    IUserRepository userRepository
-    ) : UnitOfWork(dbContext), IAntitalUnitOfWork
+    IUserRepository userRepository,
+    IUserOnboardingRepository userOnboardingRepository,
+    IUserInvestmentProfileRepository userInvestmentProfileRepository,
+    IUserKycRepository userKycRepository
+) : UnitOfWork(dbContext), IAntitalUnitOfWork
 {
-    public ISampleModelRepository SampleModelRepository { get; init; } = sampleModelRepository;
-    public IAnotherSampleModelRepository AnotherSampleModelRepository { get; init; } = anotherSampleModelRepository;
     public IUserRepository UserRepository { get; init; } = userRepository;
+    public IUserOnboardingRepository UserOnboardingRepository { get; init; } = userOnboardingRepository;
+    public IUserInvestmentProfileRepository UserInvestmentProfileRepository { get; init; } = userInvestmentProfileRepository;
+    public IUserKycRepository UserKycRepository { get; init; } = userKycRepository;
 }

@@ -19,7 +19,13 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: 8001
-      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=antitaldb;Username=postgres;Password=postgres;
+      ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection}
+      Jwt__Key: ${Jwt__Key}
+      EmailSettings__SmtpHost: ${EmailSettings__SmtpHost}
+      EmailSettings__SmtpPort: ${EmailSettings__SmtpPort}
+      EmailSettings__SmtpUser: ${EmailSettings__SmtpUser}
+      EmailSettings__SmtpPassword: ${EmailSettings__SmtpPassword}
+      EmailSettings__EnableSsl: ${EmailSettings__EnableSsl}
     depends_on:
       - db
     ports:

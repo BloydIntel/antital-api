@@ -16,6 +16,12 @@ Services:
 - Postgres 15 on host **55432** → container **db:5432**
 - Antital API on **http://localhost:18001**
 
+Compose reads secrets from `.env`. Start by copying the template:
+```bash
+cp .env.example .env
+# then edit .env with your local values (do not commit .env)
+```
+
 Apply migrations to the compose DB:
 ```bash
 ConnectionStrings__DefaultConnection="Host=localhost;Port=55432;Database=antitaldb;Username=postgres;Password=postgres" \

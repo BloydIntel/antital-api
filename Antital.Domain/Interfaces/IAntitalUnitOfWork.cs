@@ -4,7 +4,8 @@ namespace Antital.Domain.Interfaces;
 
 public interface IAntitalUnitOfWork : IUnitOfWork
 {
-    public ISampleModelRepository SampleModelRepository { get; init; }
-    public IAnotherSampleModelRepository AnotherSampleModelRepository { get; init; }
-    public IUserRepository UserRepository { get; init; }
+    IUserRepository UserRepository { get; init; }
+    IUserOnboardingRepository UserOnboardingRepository { get; init; }
+    IUserInvestmentProfileRepository UserInvestmentProfileRepository { get; init; }
+    IUserKycRepository UserKycRepository { get; init; }
 }

@@ -62,3 +62,7 @@ Antital.API/appsettings.Local.json
 # Implementation plans (internal documentation)
 *_IMPLEMENTATION.md
 AUTHENTICATION_IMPLEMENTATION.md
+
+# Local environment files
+.env
+ONBOARDING_IMPLEMENTATION_PLAN.md
