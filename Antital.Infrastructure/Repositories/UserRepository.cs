@@ -60,7 +60,10 @@ public class UserRepository(
         user.IsEmailVerified = true;
         user.EmailVerificationToken = null;
         user.EmailVerificationTokenExpiry = null;
-        user.Updated(email);
+        var updatedBy = !string.IsNullOrEmpty(currentUser.UserName)
+            ? currentUser.UserName
+            : (!string.IsNullOrEmpty(currentUser.IPAddress) ? currentUser.IPAddress : email);
+        user.Updated(updatedBy);
 
         return true;
     }

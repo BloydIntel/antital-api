@@ -1,11 +1,13 @@
+using Antital.Application.Features.Onboarding;
+using Antital.Application.Services;
 using Antital.Domain.Interfaces;
 using Antital.Infrastructure.Repositories;
 using Antital.Infrastructure;
 using Antital.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using BuildingBlocks.Infrastructure.Implementations;
-using Antital.Application;
 using Antital.Application.Common.Security;
+using Antital.Application.DTOs;
 using FluentValidation;
 using BuildingBlocks.Application.Behaviours;
 using MediatR;
@@ -32,7 +34,7 @@ public static class DependencyInjection
     {
         services.AddMediatR(cfg =>
         {
-            cfg.RegisterServicesFromAssemblyContaining(typeof(SampleModelMapper));
+            cfg.RegisterServicesFromAssemblyContaining(typeof(UserDto));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
         });
 
@@ -41,7 +43,7 @@ public static class DependencyInjection
 
     private static IServiceCollection RegisterValidator(this IServiceCollection services)
     {
-        services.AddValidatorsFromAssemblyContaining(typeof(SampleModelMapper));
+        services.AddValidatorsFromAssemblyContaining(typeof(UserDto));
 
         return services;
     }
@@ -49,9 +51,10 @@ public static class DependencyInjection
     private static IServiceCollection RegisterRepositories(this IServiceCollection services)
     {
         services.AddScoped(typeof(IAntitalUnitOfWork), typeof(AntitalUnitOfWork));
-        services.AddScoped(typeof(ISampleModelRepository), typeof(SampleModelRepository));
-        services.AddScoped(typeof(IAnotherSampleModelRepository), typeof(AnotherSampleModelRepository));
         services.AddScoped(typeof(IUserRepository), typeof(UserRepository));
+        services.AddScoped(typeof(IUserOnboardingRepository), typeof(UserOnboardingRepository));
+        services.AddScoped(typeof(IUserInvestmentProfileRepository), typeof(UserInvestmentProfileRepository));
+        services.AddScoped(typeof(IUserKycRepository), typeof(UserKycRepository));
 
         return services;
     }
@@ -77,7 +80,7 @@ public static class DependencyInjection
 
     private static IServiceCollection RegisterSwagger(this IServiceCollection services)
     {
-        services.AddSwaggerExamplesFromAssemblyOf(typeof(SampleModelMapper));
+        services.AddSwaggerExamplesFromAssemblyOf(typeof(UserDto));
 
         return services;
     }
@@ -92,6 +95,9 @@ public static class DependencyInjection
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<ResetTokenProtector>();
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IAntitalCurrentUser, AntitalCurrentUser>();
+        services.AddScoped<IKycVerificationService, PassThroughKycVerificationService>();
+        services.AddScoped<IOnboardingUserAccess, OnboardingUserAccess>();
 
         return services;
     }

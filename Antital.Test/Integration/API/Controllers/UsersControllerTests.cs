@@ -50,7 +50,9 @@ public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
         var user = SeedUser(email: "getall@example.com");
         await _context.SaveChangesAsync();
 
-        var response = await _client.GetAsync("/api/users");
+        using var authClient = CreateAuthorizedClient();
+
+        var response = await authClient.GetAsync("/api/users");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var result = await response.Content.ReadFromJsonAsync<Result<List<UserDto>>>(JsonOptions);
@@ -65,7 +67,9 @@ public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
         var user = SeedUser(email: "getbyid@example.com");
         await _context.SaveChangesAsync();
 
-        var response = await _client.GetAsync($"/api/users/{user.Id}");
+        using var authClient = CreateAuthorizedClient();
+
+        var response = await authClient.GetAsync($"/api/users/{user.Id}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var result = await response.Content.ReadFromJsonAsync<Result<UserDto>>(JsonOptions);
@@ -84,7 +88,9 @@ public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
             PhoneNumber: "+123",
             UserType: UserTypeEnum.IndividualInvestor);
 
-        var response = await _client.PostAsJsonAsync("/api/users", command);
+        using var authClient = CreateAuthorizedClient();
+
+        var response = await authClient.PostAsJsonAsync("/api/users", command);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var result = await response.Content.ReadFromJsonAsync<Result<UserDto>>(JsonOptions);
@@ -110,7 +116,9 @@ public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
             IsEmailVerified: true,
             Password: null);
 
-        var response = await _client.PutAsJsonAsync($"/api/users/{user.Id}", command);
+        using var authClient = CreateAuthorizedClient();
+
+        var response = await authClient.PutAsJsonAsync($"/api/users/{user.Id}", command);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var updated = await _context.Users.AsNoTracking().FirstAsync(u => u.Id == user.Id);
@@ -124,7 +132,7 @@ public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
         var user = SeedUser(email: "delete@example.com");
         await _context.SaveChangesAsync();
 
-        using var authClient = CreateAuthorizedClientWithDelete();
+        using var authClient = CreateAuthorizedClient(includeDeletePermission: true);
 
         var response = await authClient.DeleteAsync($"/api/users/{user.Id}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -140,8 +148,10 @@ public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
         var user = SeedUser(email: "forbid@example.com");
         await _context.SaveChangesAsync();
 
-        var response = await _client.DeleteAsync($"/api/users/{user.Id}");
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        using var authClient = CreateAuthorizedClient(); // token without CanDelete claim
+
+        var response = await authClient.DeleteAsync($"/api/users/{user.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     private User SeedUser(string email, string firstName = "Test")
@@ -162,28 +172,32 @@ public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         return user;
     }
 
-    private HttpClient CreateAuthorizedClientWithDelete()
+    private HttpClient CreateAuthorizedClient(bool includeDeletePermission = false)
     {
         var client = _factory.CreateClient();
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
-        var token = tokenHandler.CreateToken(new SecurityTokenDescriptor
+        var descriptor = new SecurityTokenDescriptor
         {
             Issuer = _config["Jwt:Issuer"],
             Audience = _config["Jwt:Audience"],
             Expires = DateTime.UtcNow.AddHours(1),
             Subject = new ClaimsIdentity(new[]
             {
-                new Claim(ClaimTypes.Email, "admin@example.com"),
-                new Claim("Permissions", "CanDelete")
+                new Claim(ClaimTypes.Email, "user@example.com")
             }),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256)
-        });
+        };
+
+        if (includeDeletePermission)
+            descriptor.Subject.AddClaim(new Claim("Permissions", "CanDelete"));
+
+        var token = tokenHandler.CreateToken(descriptor);
         var jwt = tokenHandler.WriteToken(token);
 
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwt);

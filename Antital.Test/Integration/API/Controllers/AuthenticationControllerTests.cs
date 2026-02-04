@@ -127,7 +127,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        existingUser.Created("System");
+        existingUser.Created(existingUser.Email);
         _context.Users.Add(existingUser);
         await _context.SaveChangesAsync();
 
@@ -282,7 +282,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -341,7 +341,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -382,7 +382,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             RefreshTokenHash = refreshHash,
             RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(5)
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -423,7 +423,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -477,7 +477,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -524,7 +524,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -562,7 +562,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -636,7 +636,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             PhoneNumber = "+2348012345678",
             IsEmailVerified = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -738,7 +738,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             RefreshTokenHash = refreshHash,
             RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(5)
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -830,7 +830,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
@@ -868,7 +868,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
             ResidentialAddress = "123 Main Street",
             HasAgreedToTerms = true
         };
-        user.Created("System");
+        user.Created(user.Email);
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 

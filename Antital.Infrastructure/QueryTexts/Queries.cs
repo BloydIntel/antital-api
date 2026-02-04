@@ -3,9 +3,6 @@
 public static class Queries
 {
 
-    internal static string GetSampleModelTotalCount = GetQuery(nameof(GetSampleModelTotalCount));
-    internal static string GetAnotherSampleModelTotalCount = GetQuery(nameof(GetAnotherSampleModelTotalCount));
-
     private static string GetQuery(string name)
     {
 #if DEBUG
