@@ -11,10 +11,21 @@ public class UserRepository(
     ICurrentUser currentUser
 ) : Repository<User>(dbContext, currentUser), IUserRepository
 {
+    /// <summary>Trim + lowercase for case-insensitive email matching (login, signup duplicate check, verify).</summary>
+    private static string? NormalizeEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return null;
+        return email.Trim().ToLowerInvariant();
+    }
+
     public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken)
     {
+        var normalized = NormalizeEmail(email);
+        if (normalized is null) return null;
         return await SetAsNoTracking
-            .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
+            .FirstOrDefaultAsync(
+                u => u.Email.ToLower() == normalized && !u.IsDeleted,
+                cancellationToken);
     }
 
     public override async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken)
@@ -36,15 +47,19 @@ public class UserRepository(
 
     public async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken)
     {
+        var normalized = NormalizeEmail(email);
+        if (normalized is null) return false;
         return await SetAsNoTracking
-            .AnyAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
+            .AnyAsync(u => u.Email.ToLower() == normalized && !u.IsDeleted, cancellationToken);
     }
 
     public async Task<bool> VerifyEmailAsync(string email, string token, CancellationToken cancellationToken)
     {
+        var normalized = NormalizeEmail(email);
+        if (normalized is null) return false;
         // Use tracking so we can persist changes on successful verification
         var user = await Set
-            .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == normalized && !u.IsDeleted, cancellationToken);
 
         if (user == null)
             return false;
