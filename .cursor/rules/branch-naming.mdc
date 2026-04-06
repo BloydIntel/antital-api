@@ -1,0 +1,13 @@
+---
+description: Git branches — ask for title; use bugs/ or feature/ prefix
+alwaysApply: true
+---
+
+# Branch naming
+
+Before creating a branch, **ask the user for the title** (short slug). Do not invent the slug.
+
+- Bugfix: `bugs/<title-they-give>`
+- Feature work: `feature/<title-they-give>`
+
+Example: user says “integrate onboarding api” → `feature/integrate-onboarding-api`.

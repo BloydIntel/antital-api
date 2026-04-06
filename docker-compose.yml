@@ -26,6 +26,7 @@ services:
       EmailSettings__SmtpUser: ${EmailSettings__SmtpUser}
       EmailSettings__SmtpPassword: ${EmailSettings__SmtpPassword}
       EmailSettings__EnableSsl: ${EmailSettings__EnableSsl}
+      EmailSettings__BaseUrl: ${EmailSettings__BaseUrl}
     depends_on:
       - db
     ports:
