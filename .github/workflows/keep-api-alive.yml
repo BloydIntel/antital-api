@@ -1,0 +1,37 @@
+# Hits GET /ping on a schedule so Azure App Service (or similar) stays warm.
+# Set repo secret KEEP_ALIVE_URL to the full URL, e.g. https://your-app.azurewebsites.net/ping
+# Schedule is UTC; */15 = every 15 minutes (GitHub allows at most every 5 minutes).
+
+name: Keep API alive
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keep-api-alive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      KEEP_ALIVE_URL: ${{ secrets.KEEP_ALIVE_URL }}
+    steps:
+      - name: Ping /ping
+        run: |
+          set -euo pipefail
+          if [ -z "${KEEP_ALIVE_URL:-}" ]; then
+            echo "::error::Repository secret KEEP_ALIVE_URL is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          code="$(curl -sS -o /tmp/ping-body -w "%{http_code}" --max-time 30 "$KEEP_ALIVE_URL")"
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::Expected HTTP 200, got $code"
+            cat /tmp/ping-body || true
+            exit 1
+          fi
+          echo "Keep-alive ping succeeded."

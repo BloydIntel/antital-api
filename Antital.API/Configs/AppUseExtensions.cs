@@ -3,6 +3,7 @@ using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Antital.Infrastructure;
@@ -63,9 +64,32 @@ public static class AppUseExtensions
         }
     }
 
+    /// <summary>
+    /// Lightweight outbound HTTP GET on a schedule (default: every 15 minutes UTC).
+    /// Set <c>HealthCheck:Uri</c> to your public API base ping, e.g. <c>https://{app}.azurewebsites.net/ping</c>.
+    /// If unset, no recurring job is registered (avoids empty-URL failures on deploy).
+    /// </summary>
     private static void UsingJobs(IConfiguration configuration)
     {
-        RecurringJob.AddOrUpdate<HealthCheckJob>("SampleJob", x => HealthCheckJob.CheckStatus(configuration["HealthCheck:Uri"]!), "* * * * *");
+        var uri = configuration["HealthCheck:Uri"]?.Trim();
+        if (string.IsNullOrEmpty(uri))
+        {
+            Console.WriteLine(
+                $"{DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)} Hangfire: recurring HTTP ping skipped (HealthCheck:Uri is empty). Set it to e.g. https://your-app.azurewebsites.net/ping");
+            return;
+        }
+
+        const string jobId = "ApiHttpPing";
+        const string cronEvery15MinutesUtc = "*/15 * * * *";
+
+        RecurringJob.AddOrUpdate(
+            jobId,
+            () => HealthCheckJob.CheckStatus(uri),
+            cronEvery15MinutesUtc,
+            new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+
+        Console.WriteLine(
+            $"{DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)} Hangfire: registered '{jobId}' → GET {uri} on cron {cronEvery15MinutesUtc} (UTC)");
     }
 
     private static IApplicationBuilder MigratingDatabase(this IApplicationBuilder app)
