@@ -10,5 +10,5 @@ public class EmailSettings
     public bool SmtpTls { get; set; } = true;
     public string FromEmail { get; set; } = string.Empty;
     public string FromName { get; set; } = string.Empty;
-    public string BaseUrl { get; set; } = "https://antital.com";
+    public string BaseUrl { get; set; } = string.Empty;
 }
