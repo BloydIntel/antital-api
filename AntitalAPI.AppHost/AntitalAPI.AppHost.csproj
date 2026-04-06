@@ -1,0 +1,19 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.2.1">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>12674563-a628-48d4-b363-ffb9816649fc</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Antital.API\Antital.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.2.1" />
+  </ItemGroup>
+
+</Project>

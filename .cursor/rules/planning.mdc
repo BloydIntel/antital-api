@@ -1,0 +1,65 @@
+---
+description: UI-first planning with contracts, checkpoints, and approval gates
+alwaysApply: true
+---
+
+# Planning strategy (before coding)
+
+For multi-step work, create `PLAN.md` at repo root **before writing code**.
+Keep one active plan per thread.
+
+## Required PLAN.md structure
+
+1. `## Goal`
+2. `## Scope`
+3. `## Out Of Scope`
+4. `## API contracts and endpoints available`
+5. `## Checkpoints` table
+6. `## Permission rule`
+
+```md
+| # | Checkpoint | Status |
+|---|---|---|
+| 1 | ... | pending |
+```
+
+Allowed status values: `pending`, `completed`.
+
+## Strategy requirements (capture how we plan)
+
+When planning UI/API integration, use this workflow:
+
+1. Start from the **UI flow** (screen/action), not from backend internals.
+2. Validate flow in browser when helpful and record **Current observed behavior (pre-integration baseline)**.
+3. Document exact endpoint contracts (auth, request payload, response envelope, common statuses) **before coding**.
+4. If multiple variants exist (e.g. Retail/Sophisticated/HNI), include a **modularization strategy** section.
+5. If something is unsupported (e.g. no API yet), explicitly mark it as skipped with current fallback behavior.
+
+## Checkpoint detail format (required under each checkpoint section)
+
+- Status line directly under heading: `- [ ] Status: pending` or `- [x] Status: completed`
+- **UI trigger / entry point**
+- **API contract needed** (method, route, auth, payload, response)
+- **Files to change** (exact paths)
+- **Code plan** (function-level steps)
+- **Done criteria** (observable completion checks)
+- **Current observed behavior (pre-integration baseline)** when relevant
+
+## Visibility requirements
+
+- Keep both:
+  - status table under `## Checkpoints`, and
+  - per-checkpoint checkbox status under each checkpoint section.
+- Include a **Readiness checklist** with explicit blockers/decisions.
+
+## Execution rules
+
+1. Implement only the next `pending` checkpoint.
+2. Do not implement multiple checkpoints without approval.
+3. When done, update `PLAN.md` status to `completed`.
+4. Stop and request explicit permission before the next checkpoint.
+5. If scope changes, update `PLAN.md` first, then continue.
+
+## When this does not apply
+
+Skip `PLAN.md` only for trivial single-edit tasks.
