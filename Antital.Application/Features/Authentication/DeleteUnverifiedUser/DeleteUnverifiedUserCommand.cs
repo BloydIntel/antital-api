@@ -4,5 +4,5 @@ namespace Antital.Application.Features.Authentication.DeleteUnverifiedUser;
 
 public record DeleteUnverifiedUserCommand(
     string Email,
-    string Token
+    string Otp
 ) : ICommandQuery;

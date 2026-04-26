@@ -11,7 +11,8 @@ public class DeleteUnverifiedUserCommandValidator : AbstractValidator<DeleteUnve
             .NotEmpty().WithMessage("Email is required.")
             .Must(ValidationHelper.IsValidEmail).WithMessage("Email must be in a valid format.");
 
-        RuleFor(x => x.Token)
-            .NotEmpty().WithMessage("Verification token is required.");
+        RuleFor(x => x.Otp)
+            .NotEmpty().WithMessage("OTP is required.")
+            .Matches(@"^\d{6}$").WithMessage("OTP must be a 6-digit code.");
     }
 }

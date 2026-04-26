@@ -1,3 +1,4 @@
+using Antital.Application.Common.Security;
 using Antital.Application.Features.Authentication.DeleteUnverifiedUser;
 using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
@@ -28,11 +29,12 @@ public class DeleteUnverifiedUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ValidTokenUnverifiedUser_DeletesUser()
+    public async Task Handle_ValidOtpUnverifiedUser_DeletesUser()
     {
+        var otp = "123456";
         var command = new DeleteUnverifiedUserCommand(
             Email: "user@example.com",
-            Token: "valid_token_12345"
+            Otp: otp
         );
 
         var user = new User
@@ -40,8 +42,9 @@ public class DeleteUnverifiedUserCommandHandlerTests
             Id = 1,
             Email = command.Email,
             IsEmailVerified = false,
-            EmailVerificationToken = command.Token,
-            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(1)
+            UnverifiedOtpHash = TokenGenerator.HashToken(otp),
+            UnverifiedOtpCreatedAtUtc = DateTime.UtcNow.AddMinutes(-1),
+            UnverifiedOtpExpiresAtUtc = DateTime.UtcNow.AddMinutes(10)
         };
 
         _userRepositoryMock
@@ -53,6 +56,10 @@ public class DeleteUnverifiedUserCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         _userRepositoryMock.Verify(x => x.DeleteAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+
+        user.UnverifiedOtpHash.Should().BeNull();
+        user.UnverifiedOtpCreatedAtUtc.Should().BeNull();
+        user.UnverifiedOtpExpiresAtUtc.Should().BeNull();
     }
 
     [Fact]
@@ -60,7 +67,7 @@ public class DeleteUnverifiedUserCommandHandlerTests
     {
         var command = new DeleteUnverifiedUserCommand(
             Email: "nonexistent@example.com",
-            Token: "any_token"
+            Otp: "123456"
         );
 
         _userRepositoryMock
@@ -78,16 +85,14 @@ public class DeleteUnverifiedUserCommandHandlerTests
     {
         var command = new DeleteUnverifiedUserCommand(
             Email: "verified@example.com",
-            Token: "some_token"
+            Otp: "123456"
         );
 
         var user = new User
         {
             Id = 2,
             Email = command.Email,
-            IsEmailVerified = true,
-            EmailVerificationToken = command.Token,
-            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(1)
+            IsEmailVerified = true
         };
 
         _userRepositoryMock
@@ -101,11 +106,11 @@ public class DeleteUnverifiedUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_InvalidToken_ThrowsBadRequestException()
+    public async Task Handle_WrongOtp_ThrowsBadRequestException()
     {
         var command = new DeleteUnverifiedUserCommand(
             Email: "user@example.com",
-            Token: "wrong_token"
+            Otp: "000000"
         );
 
         var user = new User
@@ -113,8 +118,9 @@ public class DeleteUnverifiedUserCommandHandlerTests
             Id = 3,
             Email = command.Email,
             IsEmailVerified = false,
-            EmailVerificationToken = "correct_token",
-            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(1)
+            UnverifiedOtpHash = TokenGenerator.HashToken("123456"),
+            UnverifiedOtpCreatedAtUtc = DateTime.UtcNow.AddMinutes(-1),
+            UnverifiedOtpExpiresAtUtc = DateTime.UtcNow.AddMinutes(10)
         };
 
         _userRepositoryMock
@@ -128,11 +134,12 @@ public class DeleteUnverifiedUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ExpiredToken_ThrowsBadRequestException()
+    public async Task Handle_ExpiredOtp_ThrowsBadRequestException()
     {
+        var otp = "123456";
         var command = new DeleteUnverifiedUserCommand(
             Email: "user@example.com",
-            Token: "expired_token"
+            Otp: otp
         );
 
         var user = new User
@@ -140,8 +147,9 @@ public class DeleteUnverifiedUserCommandHandlerTests
             Id = 4,
             Email = command.Email,
             IsEmailVerified = false,
-            EmailVerificationToken = command.Token,
-            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(-1) // Expired
+            UnverifiedOtpHash = TokenGenerator.HashToken(otp),
+            UnverifiedOtpCreatedAtUtc = DateTime.UtcNow.AddMinutes(-15),
+            UnverifiedOtpExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1)
         };
 
         _userRepositoryMock
@@ -155,11 +163,11 @@ public class DeleteUnverifiedUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_NullVerificationToken_ThrowsBadRequestException()
+    public async Task Handle_ConsumedOtp_ThrowsBadRequestException()
     {
         var command = new DeleteUnverifiedUserCommand(
             Email: "user@example.com",
-            Token: "some_token"
+            Otp: "123456"
         );
 
         var user = new User
@@ -167,8 +175,9 @@ public class DeleteUnverifiedUserCommandHandlerTests
             Id = 5,
             Email = command.Email,
             IsEmailVerified = false,
-            EmailVerificationToken = null,
-            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(1)
+            UnverifiedOtpHash = null,
+            UnverifiedOtpCreatedAtUtc = null,
+            UnverifiedOtpExpiresAtUtc = null
         };
 
         _userRepositoryMock

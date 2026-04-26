@@ -1,3 +1,4 @@
+using Antital.Application.Common.Security;
 using Antital.Domain.Interfaces;
 using BuildingBlocks.Application.Exceptions;
 using BuildingBlocks.Application.Features;
@@ -30,20 +31,30 @@ public class DeleteUnverifiedUserCommandHandler(
             throw new BadRequestException("Account already verified.", errors);
         }
 
-        // 3. Verify the email verification token matches and has not expired
-        if (string.IsNullOrEmpty(user.EmailVerificationToken) ||
-            user.EmailVerificationToken != request.Token ||
-            !user.EmailVerificationTokenExpiry.HasValue ||
-            user.EmailVerificationTokenExpiry.Value < now)
+        // 3. Verify the one-time deletion OTP hash matches and has not expired/been consumed
+        var hasOtpState =
+            !string.IsNullOrWhiteSpace(user.UnverifiedOtpHash) &&
+            user.UnverifiedOtpCreatedAtUtc.HasValue &&
+            user.UnverifiedOtpExpiresAtUtc.HasValue;
+
+        var isOtpValid = hasOtpState &&
+            user.UnverifiedOtpExpiresAtUtc!.Value >= now &&
+            TokenGenerator.VerifyTokenHash(request.Otp, user.UnverifiedOtpHash!);
+
+        if (!isOtpValid)
         {
             var errors = new Dictionary<string, string[]>
             {
-                { "Token", new[] { "Invalid or expired verification token." } }
+                { "Otp", new[] { "Invalid, expired, or already-used OTP." } }
             };
-            throw new BadRequestException("Token validation failed.", errors);
+            throw new BadRequestException("OTP validation failed.", errors);
         }
 
-        // 4. Delete the unverified user account
+        // 4. Consume OTP and delete the unverified user account
+        user.UnverifiedOtpHash = null;
+        user.UnverifiedOtpCreatedAtUtc = null;
+        user.UnverifiedOtpExpiresAtUtc = null;
+
         await userRepository.DeleteAsync(user, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
