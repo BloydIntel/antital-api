@@ -12,6 +12,8 @@ using Antital.Application.Features.Authentication.Logout;
 using Antital.Application.Features.Authentication.ForgotPassword;
 using Antital.Application.Features.Authentication.ResetPassword;
 using Antital.Application.Features.Authentication.ResendVerificationEmail;
+using Antital.Application.Features.Authentication.DeleteUnverifiedUser;
+using Antital.Application.Features.Authentication.RequestUnverifiedUserOtp;
 using Antital.Application.Features.Users.GetUsers;
 using Antital.Application.Features.Users.GetUserById;
 using Antital.Application.Features.Users.CreateUser;
@@ -114,6 +116,28 @@ public class AuthenticationController(IMediator mediator) : BaseController
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid or expired token", typeof(void))]
     [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
     public async Task<IActionResult> ResetPassword(ResetPasswordCommand request, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(request, cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPost("unverified/otp")]
+    [SwaggerOperation("Request Unverified Account OTP", "Sends a short-lived email OTP for unverified-account actions.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "OTP sent successfully", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Account is already verified or request is invalid", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
+    public async Task<IActionResult> RequestUnverifiedOtp(RequestUnverifiedUserOtpCommand request, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(request, cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpDelete("unverified")]
+    [SwaggerOperation("Delete Unverified Account", "Allows a user who has not yet verified their email to permanently delete their account. Requires the email address and a valid OTP sent via /api/auth/unverified/otp.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Account deleted successfully", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid/expired/used OTP, or account is already verified", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
+    public async Task<IActionResult> DeleteUnverified(DeleteUnverifiedUserCommand request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(request, cancellationToken);
         return ApiResult(result);
