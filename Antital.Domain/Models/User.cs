@@ -29,4 +29,8 @@ public class User : TrackableEntity
     [MaxLength(500)]
     public string? PasswordResetTokenHash { get; set; }
     public DateTime? PasswordResetTokenExpiry { get; set; }
+    [MaxLength(500)]
+    public string? UnverifiedOtpHash { get; set; }
+    public DateTime? UnverifiedOtpCreatedAtUtc { get; set; }
+    public DateTime? UnverifiedOtpExpiresAtUtc { get; set; }
 }

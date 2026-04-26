@@ -88,6 +88,28 @@ public class EmailService : IEmailService
         return SendEmailAsync(email, "Reset Your Password", htmlBody, cancellationToken);
     }
 
+    public Task SendUnverifiedOtpEmailAsync(string email, string otp, int validMinutes, CancellationToken cancellationToken)
+    {
+        var htmlBody = BuildEmailBody("unverified_otp.html", new Dictionary<string, string>
+        {
+            { "{{ email }}", email },
+            { "{{ otp }}", otp },
+            { "{{ valid_minutes }}", validMinutes.ToString() },
+            { "{{ base_url }}", _settings.BaseUrl ?? string.Empty }
+        },
+        fallback: $"""
+            <html><body>
+            <p>Hello,</p>
+            <p>Use this OTP to continue your unverified account request:</p>
+            <p><strong>{otp}</strong></p>
+            <p>This OTP will expire in {validMinutes} minutes.</p>
+            </body></html>
+            """);
+
+        LogEmail("Unverified Account OTP", email, "n/a", htmlBody);
+        return SendEmailAsync(email, "Your Account OTP", htmlBody, cancellationToken);
+    }
+
     public Task SendWelcomeEmailAsync(string email, string username, CancellationToken cancellationToken)
     {
         var htmlBody = BuildEmailBody("new_account.html", new Dictionary<string, string>
