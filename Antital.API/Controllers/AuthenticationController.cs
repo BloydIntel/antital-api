@@ -12,6 +12,7 @@ using Antital.Application.Features.Authentication.Logout;
 using Antital.Application.Features.Authentication.ForgotPassword;
 using Antital.Application.Features.Authentication.ResetPassword;
 using Antital.Application.Features.Authentication.ResendVerificationEmail;
+using Antital.Application.Features.Authentication.DeleteUnverifiedUser;
 using Antital.Application.Features.Users.GetUsers;
 using Antital.Application.Features.Users.GetUserById;
 using Antital.Application.Features.Users.CreateUser;
@@ -114,6 +115,17 @@ public class AuthenticationController(IMediator mediator) : BaseController
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid or expired token", typeof(void))]
     [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
     public async Task<IActionResult> ResetPassword(ResetPasswordCommand request, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(request, cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpDelete("unverified")]
+    [SwaggerOperation("Delete Unverified Account", "Allows a user who has not yet verified their email to permanently delete their account. Requires the email address and the verification token that was sent during sign-up.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Account deleted successfully", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid or expired token, or account is already verified", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
+    public async Task<IActionResult> DeleteUnverified(DeleteUnverifiedUserCommand request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(request, cancellationToken);
         return ApiResult(result);
