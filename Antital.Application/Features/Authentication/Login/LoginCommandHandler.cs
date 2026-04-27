@@ -34,13 +34,7 @@ public class LoginCommandHandler(
             throw new UnauthorizedException(Messages.Unauthorized);
         }
 
-        // 3. Check if email is verified → throw UnauthorizedException if not verified
-        if (!user.IsEmailVerified)
-        {
-            throw new UnauthorizedException("Email address has not been verified. Please verify your email before logging in.");
-        }
-
-        // 3b. Generate refresh token and persist
+        // 3. Generate refresh token and persist (verified and unverified users can log in)
         var refreshToken = TokenGenerator.GenerateSecureToken();
         user.RefreshTokenHash = TokenGenerator.HashToken(refreshToken);
         user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(_refreshTokenDays);

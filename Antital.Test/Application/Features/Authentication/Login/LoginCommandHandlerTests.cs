@@ -159,7 +159,7 @@ public class LoginCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_UnverifiedEmail_ThrowsUnauthorizedException()
+    public async Task Handle_UnverifiedEmail_ReturnsAuthResponseDtoWithUnverifiedFlag()
     {
         // Arrange
         var command = new LoginCommand(
@@ -184,13 +184,25 @@ public class LoginCommandHandlerTests
             .Setup(x => x.VerifyPassword(command.Password, user.PasswordHash))
             .Returns(true);
 
+        var jwtToken = "jwt_token_unverified";
+        _jwtTokenServiceMock
+            .Setup(x => x.GenerateToken(user))
+            .Returns(jwtToken);
+
         // Act
-        Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        await act.Should().ThrowAsync<UnauthorizedException>();
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.Token.Should().Be(jwtToken);
+        result.Value.IsEmailVerified.Should().BeFalse();
+        result.Value.RefreshToken.Should().NotBeNullOrEmpty();
 
-        _jwtTokenServiceMock.Verify(x => x.GenerateToken(It.IsAny<User>()), Times.Never);
+        _jwtTokenServiceMock.Verify(x => x.GenerateToken(user), Times.Once);
+        _userRepositoryMock.Verify(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
