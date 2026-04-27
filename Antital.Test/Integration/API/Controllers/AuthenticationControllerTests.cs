@@ -404,7 +404,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
-    public async Task Login_UnverifiedEmail_Returns401Unauthorized()
+    public async Task Login_UnverifiedEmail_Returns200WithUnverifiedFlag()
     {
         // Arrange
         var user = new User
@@ -436,7 +436,14 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
         var response = await _client.PostAsJsonAsync("/api/auth/login", command);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Result<AuthResponseDto>>(JsonOptions);
+        result.Should().NotBeNull();
+        result!.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.IsEmailVerified.Should().BeFalse();
+        result.Value.Token.Should().NotBeNullOrEmpty();
+        result.Value.RefreshToken.Should().NotBeNullOrEmpty();
     }
 
     [Fact]
@@ -774,7 +781,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
-    public async Task FullFlow_SignUp_TryLoginWithoutVerification_ShouldFail()
+    public async Task FullFlow_SignUp_TryLoginWithoutVerification_ShouldSucceedWithUnverifiedFlag()
     {
         // Arrange & Act - SignUp
         var signUpCommand = new SignUpCommand(
@@ -805,7 +812,14 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginCommand);
 
         // Assert
-        loginResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var loginResult = await loginResponse.Content.ReadFromJsonAsync<Result<AuthResponseDto>>(JsonOptions);
+        loginResult.Should().NotBeNull();
+        loginResult!.IsSuccess.Should().BeTrue();
+        loginResult.Value.Should().NotBeNull();
+        loginResult.Value!.IsEmailVerified.Should().BeFalse();
+        loginResult.Value.Token.Should().NotBeNullOrEmpty();
+        loginResult.Value.RefreshToken.Should().NotBeNullOrEmpty();
     }
 
     [Fact]
