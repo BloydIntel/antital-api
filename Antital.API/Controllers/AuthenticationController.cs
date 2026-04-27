@@ -49,7 +49,7 @@ public class AuthenticationController(IMediator mediator) : BaseController
     [SwaggerResponse(StatusCodes.Status200OK, "Login successful", typeof(AuthResponseDto))]
     [SwaggerResponseExample(StatusCodes.Status200OK, typeof(AuthResponseExample))]
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid request data", typeof(void))]
-    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Invalid credentials or email not verified", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Invalid credentials", typeof(void))]
     [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
     public async Task<IActionResult> Login(LoginCommand request, CancellationToken cancellationToken)
     {
