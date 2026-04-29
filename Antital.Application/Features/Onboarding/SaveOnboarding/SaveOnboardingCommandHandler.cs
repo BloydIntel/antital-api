@@ -24,8 +24,23 @@ public class SaveOnboardingCommandHandler(
         switch (request.Step)
         {
             case OnboardingStep.InvestorCategory:
-                await SaveInvestorCategoryAsync(userId, request.InvestorCategoryPayload!, cancellationToken);
-                onboarding.CurrentStep = OnboardingStep.InvestmentProfile;
+                if (request.CorporateCompanyPayload != null
+                    || request.CorporateAddressPayload != null
+                    || request.CorporateRepresentativePayload != null)
+                {
+                    await SaveCorporateCompanyInfoAsync(
+                        userId,
+                        request.CorporateCompanyPayload,
+                        request.CorporateAddressPayload,
+                        request.CorporateRepresentativePayload,
+                        cancellationToken);
+                }
+
+                if (request.InvestorCategoryPayload != null)
+                {
+                    await SaveInvestorCategoryAsync(userId, request.InvestorCategoryPayload, cancellationToken);
+                    onboarding.CurrentStep = OnboardingStep.InvestmentProfile;
+                }
                 break;
             case OnboardingStep.InvestmentProfile:
                 if (request.CorporateQiiProfilePayload != null)
@@ -90,6 +105,52 @@ public class SaveOnboardingCommandHandler(
         var isNew = profile == null;
         profile ??= new UserInvestmentProfile { UserId = userId };
         Apply(payload, profile);
+        if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
+        else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
+    }
+
+    private async Task SaveCorporateCompanyInfoAsync(
+        int userId,
+        CorporateCompanyPayload? companyPayload,
+        CorporateAddressPayload? addressPayload,
+        CorporateRepresentativePayload? representativePayload,
+        CancellationToken cancellationToken)
+    {
+        var profile = await userInvestmentProfileRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = profile == null;
+        profile ??= new UserInvestmentProfile { UserId = userId };
+
+        if (companyPayload != null)
+        {
+            profile.CompanyLegalName = companyPayload.CompanyLegalName;
+            profile.TradingBrandName = companyPayload.TradingBrandName;
+            profile.RegistrationType = companyPayload.RegistrationType;
+            profile.RegistrationNumber = companyPayload.RegistrationNumber;
+            profile.CompanyLoginEmail = companyPayload.CompanyLoginEmail;
+        }
+
+        if (addressPayload != null)
+        {
+            profile.DateOfRegistration = addressPayload.DateOfRegistration;
+            profile.CompanyWebsite = addressPayload.CompanyWebsite;
+            profile.BusinessAddress = addressPayload.BusinessAddress;
+            profile.RegisteredAddress = addressPayload.RegisteredAddress;
+            profile.CompanyEmail = addressPayload.CompanyEmail;
+            profile.CompanyPhone = addressPayload.CompanyPhone;
+        }
+
+        if (representativePayload != null)
+        {
+            profile.RepresentativeFullName = representativePayload.RepresentativeFullName;
+            profile.RepresentativeJobTitle = representativePayload.RepresentativeJobTitle;
+            profile.RepresentativePhoneNumber = representativePayload.RepresentativePhoneNumber;
+            profile.RepresentativeDateOfBirth = representativePayload.RepresentativeDateOfBirth;
+            profile.RepresentativeEmail = representativePayload.RepresentativeEmail;
+            profile.RepresentativeNationality = representativePayload.RepresentativeNationality;
+            profile.RepresentativeCountryOfResidence = representativePayload.RepresentativeCountryOfResidence;
+            profile.RepresentativeAddress = representativePayload.RepresentativeAddress;
+        }
+
         if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
         else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
     }

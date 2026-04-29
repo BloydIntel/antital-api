@@ -66,10 +66,10 @@ public class SaveOnboardingRequestMultipleExamples : IMultipleExamplesProvider<S
 
         yield return SwaggerExample.Create(
             "Corporate Company Details",
-            "Send when saving corporate company details. Only corporateCompanyPayload is set.",
+            "InvestorCategory step requires investorCategoryPayload. This sample also includes corporateCompanyPayload for reference.",
             new SaveOnboardingRequest(
                 OnboardingStep.InvestorCategory,
-                null,
+                new InvestorCategoryPayload(InvestorCategory.Retail),
                 null,
                 null,
                 new CorporateCompanyPayload(
@@ -122,7 +122,7 @@ public class SaveOnboardingRequestMultipleExamples : IMultipleExamplesProvider<S
                 null,
                 new CorporateOciProfilePayload(
                     HasBoardResolutionOrInternalMandate: true,
-                    NetAssetValueRange: OciNetAssetValueRange._10To50Million,
+                    NetAssetValueRange: OciNetAssetValueRange.Range10To50Million,
                     HasFinancialCapacityToWithstandLoss: true,
                     UnderstandsCrowdfundingHighRiskLoss: true,
                     HasQualifiedInvestmentProfessionalsAccess: true

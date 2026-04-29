@@ -16,9 +16,34 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
     {
         RuleFor(x => x.Step).IsInEnum();
 
-        RuleFor(x => x.InvestorCategoryPayload)
-            .NotNull()
-            .When(x => x.Step == OnboardingStep.InvestorCategory);
+        RuleFor(x => x)
+            .Must(x =>
+                x.InvestorCategoryPayload != null
+                || x.CorporateCompanyPayload != null
+                || x.CorporateAddressPayload != null
+                || x.CorporateRepresentativePayload != null)
+            .When(x => x.Step == OnboardingStep.InvestorCategory)
+            .WithMessage("InvestorCategory step requires investorCategoryPayload or a corporate company/address/representative payload.");
+
+        RuleFor(x => x)
+            .Must(x => x.Step != OnboardingStep.InvestorCategory || !HasNonInvestorCategoryPayloads(x))
+            .WithMessage("InvestorCategory step only supports investorCategoryPayload and corporate company/address/representative payloads.");
+
+        RuleFor(x => x)
+            .Must(x => x.Step != OnboardingStep.InvestmentProfile || CountInvestmentProfilePayloads(x) == 1)
+            .WithMessage("InvestmentProfile step requires exactly one payload: investmentProfilePayload, corporateQiiProfilePayload, or corporateOciProfilePayload.");
+
+        RuleFor(x => x)
+            .Must(x => x.Step != OnboardingStep.InvestmentProfile || !HasPayloadsOutsideInvestmentProfile(x))
+            .WithMessage("InvestmentProfile step does not allow investor category, KYC, or corporate document payloads.");
+
+        RuleFor(x => x)
+            .Must(x => x.Step != OnboardingStep.Kyc || CountKycPayloads(x) == 1)
+            .WithMessage("Kyc step requires exactly one payload: kycPayload, corporateQiiDocumentsPayload, or corporateOciDocumentsPayload.");
+
+        RuleFor(x => x)
+            .Must(x => x.Step != OnboardingStep.Kyc || !HasPayloadsOutsideKyc(x))
+            .WithMessage("Kyc step does not allow investor category, investment profile, or corporate company/address/representative payloads.");
 
         RuleFor(x => x.InvestmentProfilePayload)
             .NotNull()
@@ -61,13 +86,13 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
         When(x => x.CorporateQiiProfilePayload != null, () =>
         {
             RuleFor(x => x.CorporateQiiProfilePayload!.InstitutionTypes)
-                .NotNull()
-                .Must(types => types.Count > 0)
+                .NotEmpty()
                 .WithMessage("At least one institution type is required.");
 
             RuleFor(x => x.CorporateQiiProfilePayload!.OtherInstitutionType)
                 .NotEmpty()
-                .When(x => x.CorporateQiiProfilePayload!.InstitutionTypes.Contains(QiiInstitutionType.OtherRegulatedInstitution))
+                .When(x => x.CorporateQiiProfilePayload!.InstitutionTypes != null
+                    && x.CorporateQiiProfilePayload.InstitutionTypes.Contains(QiiInstitutionType.OtherRegulatedInstitution))
                 .WithMessage("Other institution type is required when 'Other regulated institution' is selected.");
         });
 
@@ -78,4 +103,48 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
                 .WithMessage("Net asset value range is required.");
         });
     }
+
+    private static int CountInvestmentProfilePayloads(SaveOnboardingCommand x)
+    {
+        var count = 0;
+        if (x.InvestmentProfilePayload != null) count++;
+        if (x.CorporateQiiProfilePayload != null) count++;
+        if (x.CorporateOciProfilePayload != null) count++;
+        return count;
+    }
+
+    private static int CountKycPayloads(SaveOnboardingCommand x)
+    {
+        var count = 0;
+        if (x.KycPayload != null) count++;
+        if (x.CorporateQiiDocumentsPayload != null) count++;
+        if (x.CorporateOciDocumentsPayload != null) count++;
+        return count;
+    }
+
+    private static bool HasNonInvestorCategoryPayloads(SaveOnboardingCommand x) =>
+        x.InvestmentProfilePayload != null
+        || x.KycPayload != null
+        || x.CorporateQiiProfilePayload != null
+        || x.CorporateOciProfilePayload != null
+        || x.CorporateQiiDocumentsPayload != null
+        || x.CorporateOciDocumentsPayload != null;
+
+    private static bool HasPayloadsOutsideInvestmentProfile(SaveOnboardingCommand x) =>
+        x.InvestorCategoryPayload != null
+        || x.KycPayload != null
+        || x.CorporateCompanyPayload != null
+        || x.CorporateAddressPayload != null
+        || x.CorporateRepresentativePayload != null
+        || x.CorporateQiiDocumentsPayload != null
+        || x.CorporateOciDocumentsPayload != null;
+
+    private static bool HasPayloadsOutsideKyc(SaveOnboardingCommand x) =>
+        x.InvestorCategoryPayload != null
+        || x.InvestmentProfilePayload != null
+        || x.CorporateCompanyPayload != null
+        || x.CorporateAddressPayload != null
+        || x.CorporateRepresentativePayload != null
+        || x.CorporateQiiProfilePayload != null
+        || x.CorporateOciProfilePayload != null;
 }
