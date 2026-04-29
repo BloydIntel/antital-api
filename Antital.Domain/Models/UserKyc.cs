@@ -33,6 +33,16 @@ public class UserKyc : TrackableEntity
     [MaxLength(50)]
     public string? IncomeVerificationDocumentTypes { get; set; }
 
+    // Corporate additional documents
+    [MaxLength(500)]
+    public string? RecentStatusReportDocumentPathOrKey { get; set; }
+    [MaxLength(500)]
+    public string? QiiLicenseEvidenceDocumentPathOrKey { get; set; }
+    [MaxLength(500)]
+    public string? BoardResolutionDocumentPathOrKey { get; set; }
+    [MaxLength(500)]
+    public string? IncorporationCertificateDocumentPathOrKey { get; set; }
+
     public DateTime? GovernmentIdVerifiedAt { get; set; }
     public DateTime? ProofOfAddressVerifiedAt { get; set; }
     public DateTime? SelfieVerifiedAt { get; set; }

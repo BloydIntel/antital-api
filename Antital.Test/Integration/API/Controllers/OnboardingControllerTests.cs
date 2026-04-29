@@ -178,6 +178,90 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task Put_CorporateQiiProfileStep_SavesAndHydratesOnGet()
+    {
+        var user = SeedUser(email: "corp-qii@example.com", userType: UserTypeEnum.CorporateInvestor);
+        await _context.SaveChangesAsync();
+
+        var onboarding = new UserOnboarding
+        {
+            UserId = user.Id,
+            FlowType = OnboardingFlowType.CorporateInvestor,
+            CurrentStep = OnboardingStep.InvestmentProfile,
+            Status = OnboardingStatus.Draft
+        };
+        _context.UserOnboardings.Add(onboarding);
+        _context.UserInvestmentProfiles.Add(new UserInvestmentProfile { UserId = user.Id, InvestorCategory = InvestorCategory.Retail });
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(userId: user.Id);
+
+        var request = new SaveOnboardingRequest(
+            Step: OnboardingStep.InvestmentProfile,
+            InvestorCategoryPayload: null,
+            InvestmentProfilePayload: null,
+            KycPayload: null,
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                InstitutionTypes: [QiiInstitutionType.AssetManagementCompany, QiiInstitutionType.CorporateFinanceInstitution],
+                OtherInstitutionType: null,
+                HasValidQiiRegistrationOrLicense: true,
+                HasApprovedAlternativeInvestmentMandate: true,
+                ConfirmsSecNigeriaQiiCriteria: true
+            )
+        );
+
+        var response = await authClient.PutAsJsonAsync("/api/onboarding", request, JsonOptions);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResponse = await authClient.GetAsync("/api/onboarding");
+        var getResult = await getResponse.Content.ReadFromJsonAsync<Result<OnboardingResponse>>(JsonOptions);
+        getResult!.Value!.CorporateProfile.Should().NotBeNull();
+        getResult.Value.CorporateProfile!.QiiProfile!.InstitutionTypesCommaSeparated.Should().Contain("AssetManagementCompany");
+        getResult.Value.CorporateProfile.QiiProfile.HasValidQiiRegistrationOrLicense.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Put_CorporateOciDocumentsInKycStep_SavesAndHydratesOnGet()
+    {
+        var user = SeedUser(email: "corp-oci-docs@example.com", userType: UserTypeEnum.CorporateInvestor);
+        await _context.SaveChangesAsync();
+
+        var onboarding = new UserOnboarding
+        {
+            UserId = user.Id,
+            FlowType = OnboardingFlowType.CorporateInvestor,
+            CurrentStep = OnboardingStep.Kyc,
+            Status = OnboardingStatus.Draft
+        };
+        _context.UserOnboardings.Add(onboarding);
+        _context.UserKycs.Add(new UserKyc { UserId = user.Id, IdType = KycIdType.NationalIdCard });
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(userId: user.Id);
+
+        var request = new SaveOnboardingRequest(
+            Step: OnboardingStep.Kyc,
+            InvestorCategoryPayload: null,
+            InvestmentProfilePayload: null,
+            KycPayload: null,
+            CorporateOciDocumentsPayload: new CorporateOciDocumentsPayload(
+                IncorporationCertificateDocumentPathOrKey: "docs/inc.pdf",
+                RecentStatusReportDocumentPathOrKey: "docs/status.pdf",
+                BoardResolutionDocumentPathOrKey: "docs/board.pdf"
+            )
+        );
+
+        var response = await authClient.PutAsJsonAsync("/api/onboarding", request, JsonOptions);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResponse = await authClient.GetAsync("/api/onboarding");
+        var getResult = await getResponse.Content.ReadFromJsonAsync<Result<OnboardingResponse>>(JsonOptions);
+        getResult!.Value!.Kyc!.IncorporationCertificateDocumentPathOrKey.Should().Be("docs/inc.pdf");
+        getResult.Value.Kyc.RecentStatusReportDocumentPathOrKey.Should().Be("docs/status.pdf");
+        getResult.Value.Kyc.BoardResolutionDocumentPathOrKey.Should().Be("docs/board.pdf");
+    }
+
+    [Fact]
     public async Task Post_Submit_WhenComplete_SetsSubmitted()
     {
         var user = SeedUser(email: "submit@example.com");
@@ -244,6 +328,7 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
     private User SeedUser(
         string email,
         bool isEmailVerified = true,
+        UserTypeEnum userType = UserTypeEnum.IndividualInvestor,
         string firstName = "Test",
         string lastName = "User",
         string? preferredName = null,
@@ -258,7 +343,7 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
         {
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
-            UserType = UserTypeEnum.IndividualInvestor,
+            UserType = userType,
             IsEmailVerified = isEmailVerified,
             FirstName = firstName,
             LastName = lastName,

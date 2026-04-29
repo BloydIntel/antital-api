@@ -16,7 +16,14 @@ public class SaveOnboardingRequestExample : IExamplesProvider<SaveOnboardingRequ
             Step: OnboardingStep.InvestorCategory,
             InvestorCategoryPayload: new InvestorCategoryPayload(InvestorCategory.Retail),
             InvestmentProfilePayload: null,
-            KycPayload: null
+            KycPayload: null,
+            CorporateCompanyPayload: null,
+            CorporateAddressPayload: null,
+            CorporateRepresentativePayload: null,
+            CorporateQiiProfilePayload: null,
+            CorporateOciProfilePayload: null,
+            CorporateQiiDocumentsPayload: null,
+            CorporateOciDocumentsPayload: null
         );
     }
 }

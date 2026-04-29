@@ -13,7 +13,8 @@ public record OnboardingResponse(
     OnboardingPersonalInfoDto? PersonalInfo,
     OnboardingLocationInfoDto? LocationInfo,
     OnboardingInvestorProfileDto? InvestorProfile,
-    OnboardingKycDto? Kyc
+    OnboardingKycDto? Kyc,
+    OnboardingCorporateProfileDto? CorporateProfile = null
 );
 
 public record OnboardingPersonalInfoDto(
@@ -69,8 +70,64 @@ public record OnboardingKycDto(
     string? SelfieVerificationPathOrKey,
     string? IncomeVerificationPathOrKey,
     string? IncomeVerificationDocumentTypesCommaSeparated,
+    string? RecentStatusReportDocumentPathOrKey,
+    string? QiiLicenseEvidenceDocumentPathOrKey,
+    string? BoardResolutionDocumentPathOrKey,
+    string? IncorporationCertificateDocumentPathOrKey,
     bool GovernmentIdCompleted,
     bool ProofOfAddressCompleted,
     bool SelfieCompleted,
     bool IncomeCompleted
+);
+
+public record OnboardingCorporateProfileDto(
+    OnboardingCorporateCompanyDto? Company,
+    OnboardingCorporateAddressDto? Address,
+    OnboardingCorporateRepresentativeDto? Representative,
+    OnboardingCorporateQiiProfileDto? QiiProfile,
+    OnboardingCorporateOciProfileDto? OciProfile
+);
+
+public record OnboardingCorporateCompanyDto(
+    string? CompanyLegalName,
+    string? TradingBrandName,
+    string? RegistrationType,
+    string? RegistrationNumber,
+    string? CompanyLoginEmail
+);
+
+public record OnboardingCorporateAddressDto(
+    DateTime? DateOfRegistration,
+    string? CompanyWebsite,
+    string? BusinessAddress,
+    string? RegisteredAddress,
+    string? CompanyEmail,
+    string? CompanyPhone
+);
+
+public record OnboardingCorporateRepresentativeDto(
+    string? RepresentativeFullName,
+    string? RepresentativeJobTitle,
+    string? RepresentativePhoneNumber,
+    DateTime? RepresentativeDateOfBirth,
+    string? RepresentativeEmail,
+    string? RepresentativeNationality,
+    string? RepresentativeCountryOfResidence,
+    string? RepresentativeAddress
+);
+
+public record OnboardingCorporateQiiProfileDto(
+    string? InstitutionTypesCommaSeparated,
+    string? OtherInstitutionType,
+    bool? HasValidQiiRegistrationOrLicense,
+    bool? HasApprovedAlternativeInvestmentMandate,
+    bool? ConfirmsSecNigeriaQiiCriteria
+);
+
+public record OnboardingCorporateOciProfileDto(
+    bool? HasBoardResolutionOrInternalMandate,
+    OciNetAssetValueRange? NetAssetValueRange,
+    bool? HasFinancialCapacityToWithstandLoss,
+    bool? UnderstandsCrowdfundingHighRiskLoss,
+    bool? HasQualifiedInvestmentProfessionalsAccess
 );
