@@ -166,4 +166,183 @@ public class SaveOnboardingCommandHandlerTests
         _kycRepoMock.Verify(x => x.AddAsync(It.Is<UserKyc>(k => k.Nin == "12345678901" && k.Bvn == "21234567890"), It.IsAny<CancellationToken>()), Times.Once);
         _onboardingRepoMock.Verify(x => x.UpdateAsync(It.Is<UserOnboarding>(e => e.CurrentStep == OnboardingStep.Review), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task Handle_InvestorCategoryStep_WithCorporateCompanyInfo_UpdatesProfile_WithoutAdvancingStep()
+    {
+        var corporateUser = new User
+        {
+            Id = 1,
+            Email = "corp@test.com",
+            IsEmailVerified = true,
+            FirstName = "Corp",
+            LastName = "User",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.CorporateInvestor
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, corporateUser));
+
+        var existingOnboarding = new UserOnboarding
+        {
+            UserId = 1,
+            CurrentStep = OnboardingStep.InvestorCategory,
+            Status = OnboardingStatus.Draft
+        };
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserInvestmentProfile?)null);
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestorCategory,
+            null,
+            null,
+            null,
+            CorporateCompanyPayload: new CorporateCompanyPayload(
+                CompanyLegalName: "Acme Ventures Limited",
+                TradingBrandName: "Acme Ventures",
+                RegistrationType: "LTD",
+                RegistrationNumber: "RC123456",
+                CompanyLoginEmail: "ops@acmeventures.com"
+            ),
+            CorporateAddressPayload: new CorporateAddressPayload(
+                DateOfRegistration: new DateTime(2020, 1, 15),
+                CompanyWebsite: "https://acmeventures.com",
+                BusinessAddress: "23A Unity Crescent Lekki",
+                RegisteredAddress: "23A Unity Crescent Lekki",
+                CompanyEmail: "info@acmeventures.com",
+                CompanyPhone: "+2348012345678"
+            ),
+            CorporateRepresentativePayload: new CorporateRepresentativePayload(
+                RepresentativeFullName: "Jane Doe",
+                RepresentativeJobTitle: "Director",
+                RepresentativePhoneNumber: "+2348098765432",
+                RepresentativeDateOfBirth: new DateTime(1990, 5, 10),
+                RepresentativeEmail: "jane@acmeventures.com",
+                RepresentativeNationality: "Nigerian",
+                RepresentativeCountryOfResidence: "Nigeria",
+                RepresentativeAddress: "Lekki, Lagos"
+            )
+        );
+
+        var result = await _handler.Handle(cmd, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _profileRepoMock.Verify(x => x.AddAsync(It.Is<UserInvestmentProfile>(p =>
+            p.CompanyLegalName == "Acme Ventures Limited" &&
+            p.TradingBrandName == "Acme Ventures" &&
+            p.RegistrationType == "LTD" &&
+            p.RegistrationNumber == "RC123456" &&
+            p.CompanyLoginEmail == "ops@acmeventures.com" &&
+            p.CompanyWebsite == "https://acmeventures.com" &&
+            p.BusinessAddress == "23A Unity Crescent Lekki" &&
+            p.RegisteredAddress == "23A Unity Crescent Lekki" &&
+            p.CompanyEmail == "info@acmeventures.com" &&
+            p.CompanyPhone == "+2348012345678" &&
+            p.RepresentativeFullName == "Jane Doe" &&
+            p.RepresentativeJobTitle == "Director" &&
+            p.RepresentativePhoneNumber == "+2348098765432" &&
+            p.RepresentativeEmail == "jane@acmeventures.com"), It.IsAny<CancellationToken>()), Times.Once);
+        _onboardingRepoMock.Verify(x => x.UpdateAsync(It.Is<UserOnboarding>(e => e.CurrentStep == OnboardingStep.InvestorCategory), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_InvestmentProfileStep_WithCorporateQiiPayload_UpdatesCorporateProfile()
+    {
+        var corporateUser = new User
+        {
+            Id = 1,
+            Email = "corp@test.com",
+            IsEmailVerified = true,
+            FirstName = "Corp",
+            LastName = "User",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.CorporateInvestor
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, corporateUser));
+
+        var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.InvestorCategory, Status = OnboardingStatus.Draft };
+        var existingProfile = new UserInvestmentProfile { UserId = 1 };
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingProfile);
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            null,
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                [QiiInstitutionType.AssetManagementCompany],
+                null,
+                true,
+                true,
+                true
+            )
+        );
+
+        var result = await _handler.Handle(cmd, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _profileRepoMock.Verify(x => x.UpdateAsync(It.Is<UserInvestmentProfile>(p =>
+            p.QiiInstitutionTypes == "AssetManagementCompany" &&
+            p.HasValidQiiRegistrationOrLicense == true &&
+            p.ConfirmsSecNigeriaQiiCriteria == true), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_KycStep_WithCorporateOciDocs_UpdatesCorporateKycDocs()
+    {
+        var corporateUser = new User
+        {
+            Id = 1,
+            Email = "corp@test.com",
+            IsEmailVerified = true,
+            FirstName = "Corp",
+            LastName = "User",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.CorporateInvestor
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, corporateUser));
+
+        var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.Kyc, Status = OnboardingStatus.Draft };
+        var existingKyc = new UserKyc { UserId = 1, IdType = KycIdType.NationalIdCard };
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingKyc);
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            null,
+            CorporateOciDocumentsPayload: new CorporateOciDocumentsPayload(
+                "inc-path",
+                "status-path",
+                "board-path"
+            )
+        );
+
+        var result = await _handler.Handle(cmd, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _kycRepoMock.Verify(x => x.UpdateAsync(It.Is<UserKyc>(k =>
+            k.IncorporationCertificateDocumentPathOrKey == "inc-path" &&
+            k.RecentStatusReportDocumentPathOrKey == "status-path" &&
+            k.BoardResolutionDocumentPathOrKey == "board-path"), It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

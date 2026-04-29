@@ -20,7 +20,7 @@ public class SaveOnboardingCommandValidatorTests
             null
         );
         var result = _validator.TestValidate(cmd);
-        result.ShouldHaveValidationErrorFor(c => c.InvestorCategoryPayload);
+        result.ShouldHaveValidationErrorFor(c => c);
     }
 
     [Fact]
@@ -37,6 +37,26 @@ public class SaveOnboardingCommandValidatorTests
     }
 
     [Fact]
+    public void InvestorCategoryStep_WithCorporateCompanyPayload_Passes()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestorCategory,
+            null,
+            null,
+            null,
+            CorporateCompanyPayload: new CorporateCompanyPayload(
+                CompanyLegalName: "Acme Ventures Limited",
+                TradingBrandName: "Acme Ventures",
+                RegistrationType: "LTD",
+                RegistrationNumber: "RC123456",
+                CompanyLoginEmail: "ops@acmeventures.com"
+            )
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
     public void InvestmentProfileStep_WithoutPayload_Fails()
     {
         var cmd = new SaveOnboardingCommand(
@@ -46,7 +66,54 @@ public class SaveOnboardingCommandValidatorTests
             null
         );
         var result = _validator.TestValidate(cmd);
-        result.ShouldHaveValidationErrorFor(c => c.InvestmentProfilePayload);
+        result.ShouldHaveValidationErrorFor(c => c);
+    }
+
+    [Fact]
+    public void InvestmentProfileStep_WithQiiPayloadAndKycPayload_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, null, null, null, null, null, null, null),
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                [QiiInstitutionType.Bank],
+                null,
+                true,
+                true,
+                true
+            )
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c);
+    }
+
+    [Fact]
+    public void InvestmentProfileStep_WithBothQiiAndOciPayload_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            null,
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                [QiiInstitutionType.Bank],
+                null,
+                true,
+                true,
+                true
+            ),
+            CorporateOciProfilePayload: new CorporateOciProfilePayload(
+                true,
+                OciNetAssetValueRange.Below10Million,
+                true,
+                true,
+                true
+            )
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c);
     }
 
     [Fact]
@@ -103,7 +170,45 @@ public class SaveOnboardingCommandValidatorTests
             null
         );
         var result = _validator.TestValidate(cmd);
-        result.ShouldHaveValidationErrorFor(c => c.KycPayload);
+        result.ShouldHaveValidationErrorFor(c => c);
+    }
+
+    [Fact]
+    public void KycStep_WithKycAndCorporateDocsTogether_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", null, null, null, null, null),
+            CorporateOciDocumentsPayload: new CorporateOciDocumentsPayload(
+                "inc.pdf",
+                "status.pdf",
+                "board.pdf"
+            )
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c);
+    }
+
+    [Fact]
+    public void KycStep_WithQiiProfilePayload_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            null,
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                [QiiInstitutionType.Bank],
+                null,
+                true,
+                true,
+                true
+            )
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c);
     }
 
     [Fact]
@@ -171,5 +276,89 @@ public class SaveOnboardingCommandValidatorTests
         );
         var result = _validator.TestValidate(cmd);
         result.ShouldHaveValidationErrorFor(c => c.KycPayload!.Nin);
+    }
+
+    [Fact]
+    public void CorporateQiiProfile_WithNoInstitutionTypes_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            null,
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                InstitutionTypes: [],
+                OtherInstitutionType: null,
+                HasValidQiiRegistrationOrLicense: true,
+                HasApprovedAlternativeInvestmentMandate: true,
+                ConfirmsSecNigeriaQiiCriteria: true
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.CorporateQiiProfilePayload!.InstitutionTypes);
+    }
+
+    [Fact]
+    public void CorporateQiiProfile_WithNullInstitutionTypes_FailsWithoutThrowing()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            null,
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                InstitutionTypes: null!,
+                OtherInstitutionType: null,
+                HasValidQiiRegistrationOrLicense: true,
+                HasApprovedAlternativeInvestmentMandate: true,
+                ConfirmsSecNigeriaQiiCriteria: true
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.CorporateQiiProfilePayload!.InstitutionTypes);
+    }
+
+    [Fact]
+    public void CorporateQiiProfile_WithOtherInstitutionButNoDetail_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            null,
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                InstitutionTypes: [QiiInstitutionType.OtherRegulatedInstitution],
+                OtherInstitutionType: null,
+                HasValidQiiRegistrationOrLicense: true,
+                HasApprovedAlternativeInvestmentMandate: true,
+                ConfirmsSecNigeriaQiiCriteria: true
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.CorporateQiiProfilePayload!.OtherInstitutionType);
+    }
+
+    [Fact]
+    public void CorporateOciProfile_WithoutNetAssetValueRange_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            null,
+            CorporateOciProfilePayload: new CorporateOciProfilePayload(
+                HasBoardResolutionOrInternalMandate: true,
+                NetAssetValueRange: null,
+                HasFinancialCapacityToWithstandLoss: true,
+                UnderstandsCrowdfundingHighRiskLoss: true,
+                HasQualifiedInvestmentProfessionalsAccess: true
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.CorporateOciProfilePayload!.NetAssetValueRange);
     }
 }

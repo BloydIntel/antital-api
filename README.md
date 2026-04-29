@@ -41,6 +41,21 @@ ConnectionStrings__DefaultConnection="Host=localhost;Port=55432;Database=antital
 dotnet run --project Antital.API
 ```
 
+## Run with .NET Aspire (AppHost)
+This repository uses an Aspire AppHost project at `AntitalAPI.AppHost`.
+Start it with:
+```bash
+dotnet restore
+dotnet run --project AntitalAPI.AppHost
+```
+
+If you want Aspire workload/templates available locally:
+```bash
+dotnet workload install aspire
+```
+
+Note: `dotnet aspire` may not exist as a command unless the corresponding tool is installed; running the AppHost project is the standard startup path.
+
 ## Integration tests
 ```bash
 export TEST_DB_CONNECTION_STRING="Host=localhost;Port=55432;Database=antitaldb_test;Username=postgres;Password=postgres"

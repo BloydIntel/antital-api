@@ -60,7 +60,14 @@ public class OnboardingController(IMediator mediator) : BaseController
             request.Step,
             request.InvestorCategoryPayload,
             request.InvestmentProfilePayload,
-            request.KycPayload
+            request.KycPayload,
+            request.CorporateCompanyPayload,
+            request.CorporateAddressPayload,
+            request.CorporateRepresentativePayload,
+            request.CorporateQiiProfilePayload,
+            request.CorporateOciProfilePayload,
+            request.CorporateQiiDocumentsPayload,
+            request.CorporateOciDocumentsPayload
         );
         var result = await mediator.Send(command, cancellationToken);
         return ApiResult(result);
