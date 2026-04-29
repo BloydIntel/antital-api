@@ -43,6 +43,8 @@ public class OnboardingEnumsTests
     [InlineData(InvestorCategory.Retail, 0, "Retail Investor")]
     [InlineData(InvestorCategory.Sophisticated, 1, "Sophisticated Investor")]
     [InlineData(InvestorCategory.HighNetWorth, 2, "High Net-Worth Investor (HNI)")]
+    [InlineData(InvestorCategory.QualifiedInstitutionalInvestor, 3, "Qualified Institutional Investor (QII)")]
+    [InlineData(InvestorCategory.OtherCorporateInvestor, 4, "Other Corporate Investor (OCI)")]
     public void InvestorCategory_ShouldHaveExpectedValueAndDescription(InvestorCategory value, int expectedInt, string expectedDescription)
     {
         ((int)value).Should().Be(expectedInt);
