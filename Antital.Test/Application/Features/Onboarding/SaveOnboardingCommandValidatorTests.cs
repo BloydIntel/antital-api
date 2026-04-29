@@ -172,4 +172,67 @@ public class SaveOnboardingCommandValidatorTests
         var result = _validator.TestValidate(cmd);
         result.ShouldHaveValidationErrorFor(c => c.KycPayload!.Nin);
     }
+
+    [Fact]
+    public void CorporateQiiProfile_WithNoInstitutionTypes_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            null,
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                InstitutionTypes: [],
+                OtherInstitutionType: null,
+                HasValidQiiRegistrationOrLicense: true,
+                HasApprovedAlternativeInvestmentMandate: true,
+                ConfirmsSecNigeriaQiiCriteria: true
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.CorporateQiiProfilePayload!.InstitutionTypes);
+    }
+
+    [Fact]
+    public void CorporateQiiProfile_WithOtherInstitutionButNoDetail_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            null,
+            CorporateQiiProfilePayload: new CorporateQiiProfilePayload(
+                InstitutionTypes: [QiiInstitutionType.OtherRegulatedInstitution],
+                OtherInstitutionType: null,
+                HasValidQiiRegistrationOrLicense: true,
+                HasApprovedAlternativeInvestmentMandate: true,
+                ConfirmsSecNigeriaQiiCriteria: true
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.CorporateQiiProfilePayload!.OtherInstitutionType);
+    }
+
+    [Fact]
+    public void CorporateOciProfile_WithoutNetAssetValueRange_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            null,
+            null,
+            CorporateOciProfilePayload: new CorporateOciProfilePayload(
+                HasBoardResolutionOrInternalMandate: true,
+                NetAssetValueRange: null,
+                HasFinancialCapacityToWithstandLoss: true,
+                UnderstandsCrowdfundingHighRiskLoss: true,
+                HasQualifiedInvestmentProfessionalsAccess: true
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.CorporateOciProfilePayload!.NetAssetValueRange);
+    }
 }

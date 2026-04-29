@@ -50,10 +50,61 @@ public static class OnboardingMappers
             kyc.SelfieVerificationPathOrKey,
             kyc.IncomeVerificationPathOrKey,
             kyc.IncomeVerificationDocumentTypes,
+            kyc.RecentStatusReportDocumentPathOrKey,
+            kyc.QiiLicenseEvidenceDocumentPathOrKey,
+            kyc.BoardResolutionDocumentPathOrKey,
+            kyc.IncorporationCertificateDocumentPathOrKey,
             kyc.GovernmentIdVerifiedAt.HasValue,
             kyc.ProofOfAddressVerifiedAt.HasValue,
             kyc.SelfieVerifiedAt.HasValue,
             kyc.IncomeVerifiedAt.HasValue
+        );
+    }
+
+    public static OnboardingCorporateProfileDto? ToCorporateDto(this UserInvestmentProfile? profile)
+    {
+        if (profile == null) return null;
+
+        return new OnboardingCorporateProfileDto(
+            new OnboardingCorporateCompanyDto(
+                profile.CompanyLegalName,
+                profile.TradingBrandName,
+                profile.RegistrationType,
+                profile.RegistrationNumber,
+                profile.CompanyLoginEmail
+            ),
+            new OnboardingCorporateAddressDto(
+                profile.DateOfRegistration,
+                profile.CompanyWebsite,
+                profile.BusinessAddress,
+                profile.RegisteredAddress,
+                profile.CompanyEmail,
+                profile.CompanyPhone
+            ),
+            new OnboardingCorporateRepresentativeDto(
+                profile.RepresentativeFullName,
+                profile.RepresentativeJobTitle,
+                profile.RepresentativePhoneNumber,
+                profile.RepresentativeDateOfBirth,
+                profile.RepresentativeEmail,
+                profile.RepresentativeNationality,
+                profile.RepresentativeCountryOfResidence,
+                profile.RepresentativeAddress
+            ),
+            new OnboardingCorporateQiiProfileDto(
+                profile.QiiInstitutionTypes,
+                profile.QiiOtherInstitutionType,
+                profile.HasValidQiiRegistrationOrLicense,
+                profile.HasApprovedAlternativeInvestmentMandate,
+                profile.ConfirmsSecNigeriaQiiCriteria
+            ),
+            new OnboardingCorporateOciProfileDto(
+                profile.HasBoardResolutionOrInternalMandate,
+                profile.OciNetAssetValueRange,
+                profile.HasFinancialCapacityToWithstandLoss,
+                profile.UnderstandsCrowdfundingHighRiskLoss,
+                profile.HasQualifiedInvestmentProfessionalsAccess
+            )
         );
     }
 }

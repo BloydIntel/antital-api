@@ -18,6 +18,13 @@ public class SaveOnboardingRequestMultipleExamples : IMultipleExamplesProvider<S
                 OnboardingStep.InvestorCategory,
                 new InvestorCategoryPayload(InvestorCategory.Retail),
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null));
 
         yield return SwaggerExample.Create(
@@ -32,6 +39,13 @@ public class SaveOnboardingRequestMultipleExamples : IMultipleExamplesProvider<S
                     true, true, true, true, true,
                     null, null, null, null, null, null, null, null,
                     null, null, null, null, null),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null));
 
         yield return SwaggerExample.Create(
@@ -41,6 +55,99 @@ public class SaveOnboardingRequestMultipleExamples : IMultipleExamplesProvider<S
                 OnboardingStep.Kyc,
                 null,
                 null,
-                new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", "path/gov-id.pdf", "path/proof-of-address.pdf", "path/selfie.jpg", null, null)));
+                new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", "path/gov-id.pdf", "path/proof-of-address.pdf", "path/selfie.jpg", null, null),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+
+        yield return SwaggerExample.Create(
+            "Corporate Company Details",
+            "Send when saving corporate company details. Only corporateCompanyPayload is set.",
+            new SaveOnboardingRequest(
+                OnboardingStep.InvestorCategory,
+                null,
+                null,
+                null,
+                new CorporateCompanyPayload(
+                    CompanyLegalName: "Acme Ventures Limited",
+                    TradingBrandName: "Acme Ventures",
+                    RegistrationType: "LTD (Limited Liability)",
+                    RegistrationNumber: "RC123456",
+                    CompanyLoginEmail: "ops@acmeventures.com"
+                ),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+
+        yield return SwaggerExample.Create(
+            "Corporate QII Profile",
+            "Send when saving QII investment profile answers. Only corporateQiiProfilePayload is set.",
+            new SaveOnboardingRequest(
+                OnboardingStep.InvestmentProfile,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new CorporateQiiProfilePayload(
+                    InstitutionTypes: [QiiInstitutionType.AssetManagementCompany, QiiInstitutionType.CorporateFinanceInstitution],
+                    OtherInstitutionType: null,
+                    HasValidQiiRegistrationOrLicense: true,
+                    HasApprovedAlternativeInvestmentMandate: true,
+                    ConfirmsSecNigeriaQiiCriteria: true
+                ),
+                null,
+                null,
+                null));
+
+        yield return SwaggerExample.Create(
+            "Corporate OCI Profile",
+            "Send when saving OCI investment profile answers. Only corporateOciProfilePayload is set.",
+            new SaveOnboardingRequest(
+                OnboardingStep.InvestmentProfile,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new CorporateOciProfilePayload(
+                    HasBoardResolutionOrInternalMandate: true,
+                    NetAssetValueRange: OciNetAssetValueRange._10To50Million,
+                    HasFinancialCapacityToWithstandLoss: true,
+                    UnderstandsCrowdfundingHighRiskLoss: true,
+                    HasQualifiedInvestmentProfessionalsAccess: true
+                ),
+                null,
+                null));
+
+        yield return SwaggerExample.Create(
+            "Corporate OCI Additional Docs",
+            "Send when saving OCI document uploads. Only corporateOciDocumentsPayload is set.",
+            new SaveOnboardingRequest(
+                OnboardingStep.Kyc,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new CorporateOciDocumentsPayload(
+                    IncorporationCertificateDocumentPathOrKey: "docs/incorporation-certificate.pdf",
+                    RecentStatusReportDocumentPathOrKey: "docs/recent-status-report.pdf",
+                    BoardResolutionDocumentPathOrKey: "docs/board-resolution.pdf"
+                )));
     }
 }

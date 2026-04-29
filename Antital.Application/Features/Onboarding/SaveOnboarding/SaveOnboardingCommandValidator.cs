@@ -22,11 +22,15 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
 
         RuleFor(x => x.InvestmentProfilePayload)
             .NotNull()
-            .When(x => x.Step == OnboardingStep.InvestmentProfile);
+            .When(x => x.Step == OnboardingStep.InvestmentProfile
+                && x.CorporateQiiProfilePayload == null
+                && x.CorporateOciProfilePayload == null);
 
         RuleFor(x => x.KycPayload)
             .NotNull()
-            .When(x => x.Step == OnboardingStep.Kyc);
+            .When(x => x.Step == OnboardingStep.Kyc
+                && x.CorporateQiiDocumentsPayload == null
+                && x.CorporateOciDocumentsPayload == null);
 
         When(x => x.Step == OnboardingStep.Kyc && x.KycPayload != null, () =>
         {
@@ -52,6 +56,26 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
                 .NotNull()
                 .When(x => x.InvestmentProfilePayload!.InvestorCategory == InvestorCategory.HighNetWorth
                     && x.InvestmentProfilePayload.NetAssetsExceed100m == true);
+        });
+
+        When(x => x.CorporateQiiProfilePayload != null, () =>
+        {
+            RuleFor(x => x.CorporateQiiProfilePayload!.InstitutionTypes)
+                .NotNull()
+                .Must(types => types.Count > 0)
+                .WithMessage("At least one institution type is required.");
+
+            RuleFor(x => x.CorporateQiiProfilePayload!.OtherInstitutionType)
+                .NotEmpty()
+                .When(x => x.CorporateQiiProfilePayload!.InstitutionTypes.Contains(QiiInstitutionType.OtherRegulatedInstitution))
+                .WithMessage("Other institution type is required when 'Other regulated institution' is selected.");
+        });
+
+        When(x => x.CorporateOciProfilePayload != null, () =>
+        {
+            RuleFor(x => x.CorporateOciProfilePayload!.NetAssetValueRange)
+                .NotNull()
+                .WithMessage("Net asset value range is required.");
         });
     }
 }

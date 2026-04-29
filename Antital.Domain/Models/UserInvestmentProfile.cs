@@ -53,5 +53,63 @@ public class UserInvestmentProfile : TrackableEntity
     public bool? AwareOfLimitedLiquidityHni { get; set; }
     public bool? ConfirmSecHniCriteria { get; set; }
 
+    // --- Corporate company details ---
+    [MaxLength(200)]
+    public string? CompanyLegalName { get; set; }
+    [MaxLength(200)]
+    public string? TradingBrandName { get; set; }
+    [MaxLength(100)]
+    public string? RegistrationType { get; set; }
+    [MaxLength(100)]
+    public string? RegistrationNumber { get; set; }
+    [MaxLength(255)]
+    public string? CompanyLoginEmail { get; set; }
+
+    // --- Corporate address ---
+    public DateTime? DateOfRegistration { get; set; }
+    [MaxLength(300)]
+    public string? CompanyWebsite { get; set; }
+    [MaxLength(500)]
+    public string? BusinessAddress { get; set; }
+    [MaxLength(500)]
+    public string? RegisteredAddress { get; set; }
+    [MaxLength(255)]
+    public string? CompanyEmail { get; set; }
+    [MaxLength(50)]
+    public string? CompanyPhone { get; set; }
+
+    // --- Corporate representative ---
+    [MaxLength(200)]
+    public string? RepresentativeFullName { get; set; }
+    [MaxLength(100)]
+    public string? RepresentativeJobTitle { get; set; }
+    [MaxLength(50)]
+    public string? RepresentativePhoneNumber { get; set; }
+    public DateTime? RepresentativeDateOfBirth { get; set; }
+    [MaxLength(255)]
+    public string? RepresentativeEmail { get; set; }
+    [MaxLength(100)]
+    public string? RepresentativeNationality { get; set; }
+    [MaxLength(100)]
+    public string? RepresentativeCountryOfResidence { get; set; }
+    [MaxLength(500)]
+    public string? RepresentativeAddress { get; set; }
+
+    // --- Corporate QII profile ---
+    [MaxLength(200)]
+    public string? QiiInstitutionTypes { get; set; }
+    [MaxLength(200)]
+    public string? QiiOtherInstitutionType { get; set; }
+    public bool? HasValidQiiRegistrationOrLicense { get; set; }
+    public bool? HasApprovedAlternativeInvestmentMandate { get; set; }
+    public bool? ConfirmsSecNigeriaQiiCriteria { get; set; }
+
+    // --- Corporate OCI profile ---
+    public bool? HasBoardResolutionOrInternalMandate { get; set; }
+    public OciNetAssetValueRange? OciNetAssetValueRange { get; set; }
+    public bool? HasFinancialCapacityToWithstandLoss { get; set; }
+    public bool? UnderstandsCrowdfundingHighRiskLoss { get; set; }
+    public bool? HasQualifiedInvestmentProfessionalsAccess { get; set; }
+
     public virtual User User { get; set; } = null!;
 }

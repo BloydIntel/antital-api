@@ -28,11 +28,29 @@ public class SaveOnboardingCommandHandler(
                 onboarding.CurrentStep = OnboardingStep.InvestmentProfile;
                 break;
             case OnboardingStep.InvestmentProfile:
-                await SaveInvestmentProfileAsync(userId, request.InvestmentProfilePayload!, cancellationToken);
+                if (request.CorporateQiiProfilePayload != null)
+                {
+                    await SaveCorporateQiiProfileAsync(userId, request.CorporateQiiProfilePayload, cancellationToken);
+                }
+                else if (request.CorporateOciProfilePayload != null)
+                {
+                    await SaveCorporateOciProfileAsync(userId, request.CorporateOciProfilePayload, cancellationToken);
+                }
+                else
+                {
+                    await SaveInvestmentProfileAsync(userId, request.InvestmentProfilePayload!, cancellationToken);
+                }
                 onboarding.CurrentStep = OnboardingStep.Kyc;
                 break;
             case OnboardingStep.Kyc:
-                await SaveKycAsync(userId, request.KycPayload!, cancellationToken);
+                if (request.KycPayload != null)
+                {
+                    await SaveKycAsync(userId, request.KycPayload, cancellationToken);
+                }
+                else
+                {
+                    await SaveCorporateDocumentsAsync(userId, request.CorporateQiiDocumentsPayload, request.CorporateOciDocumentsPayload, cancellationToken);
+                }
                 onboarding.CurrentStep = OnboardingStep.Review;
                 break;
             case OnboardingStep.Review:
@@ -103,6 +121,40 @@ public class SaveOnboardingCommandHandler(
         profile.ConfirmSecHniCriteria = payload.ConfirmSecHniCriteria;
     }
 
+    private async Task SaveCorporateQiiProfileAsync(int userId, CorporateQiiProfilePayload payload, CancellationToken cancellationToken)
+    {
+        var profile = await userInvestmentProfileRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = profile == null;
+        profile ??= new UserInvestmentProfile { UserId = userId };
+
+        profile.QiiInstitutionTypes = payload.InstitutionTypes.Count == 0
+            ? null
+            : string.Join(",", payload.InstitutionTypes.Select(x => x.ToString()));
+        profile.QiiOtherInstitutionType = payload.OtherInstitutionType;
+        profile.HasValidQiiRegistrationOrLicense = payload.HasValidQiiRegistrationOrLicense;
+        profile.HasApprovedAlternativeInvestmentMandate = payload.HasApprovedAlternativeInvestmentMandate;
+        profile.ConfirmsSecNigeriaQiiCriteria = payload.ConfirmsSecNigeriaQiiCriteria;
+
+        if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
+        else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
+    }
+
+    private async Task SaveCorporateOciProfileAsync(int userId, CorporateOciProfilePayload payload, CancellationToken cancellationToken)
+    {
+        var profile = await userInvestmentProfileRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = profile == null;
+        profile ??= new UserInvestmentProfile { UserId = userId };
+
+        profile.HasBoardResolutionOrInternalMandate = payload.HasBoardResolutionOrInternalMandate;
+        profile.OciNetAssetValueRange = payload.NetAssetValueRange;
+        profile.HasFinancialCapacityToWithstandLoss = payload.HasFinancialCapacityToWithstandLoss;
+        profile.UnderstandsCrowdfundingHighRiskLoss = payload.UnderstandsCrowdfundingHighRiskLoss;
+        profile.HasQualifiedInvestmentProfessionalsAccess = payload.HasQualifiedInvestmentProfessionalsAccess;
+
+        if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
+        else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
+    }
+
     private async Task SaveKycAsync(int userId, KycPayload payload, CancellationToken cancellationToken)
     {
         var input = new KycVerificationInput(
@@ -140,5 +192,33 @@ public class SaveOnboardingCommandHandler(
         kyc.ProofOfAddressVerifiedAt = result.ProofOfAddressVerifiedAt;
         kyc.SelfieVerifiedAt = result.SelfieVerifiedAt;
         kyc.IncomeVerifiedAt = result.IncomeVerifiedAt;
+    }
+
+    private async Task SaveCorporateDocumentsAsync(
+        int userId,
+        CorporateQiiDocumentsPayload? qiiPayload,
+        CorporateOciDocumentsPayload? ociPayload,
+        CancellationToken cancellationToken)
+    {
+        var kyc = await userKycRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = kyc == null;
+        kyc ??= new UserKyc { UserId = userId, IdType = KycIdType.NationalIdCard };
+
+        if (qiiPayload != null)
+        {
+            kyc.RecentStatusReportDocumentPathOrKey = qiiPayload.RecentStatusReportDocumentPathOrKey;
+            kyc.QiiLicenseEvidenceDocumentPathOrKey = qiiPayload.QiiLicenseEvidenceDocumentPathOrKey;
+            kyc.BoardResolutionDocumentPathOrKey = qiiPayload.BoardResolutionDocumentPathOrKey;
+        }
+
+        if (ociPayload != null)
+        {
+            kyc.IncorporationCertificateDocumentPathOrKey = ociPayload.IncorporationCertificateDocumentPathOrKey;
+            kyc.RecentStatusReportDocumentPathOrKey = ociPayload.RecentStatusReportDocumentPathOrKey;
+            kyc.BoardResolutionDocumentPathOrKey = ociPayload.BoardResolutionDocumentPathOrKey;
+        }
+
+        if (isNew) { await userKycRepository.AddAsync(kyc, cancellationToken); }
+        else { await userKycRepository.UpdateAsync(kyc, cancellationToken); }
     }
 }

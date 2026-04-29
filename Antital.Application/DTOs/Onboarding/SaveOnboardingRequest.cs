@@ -9,5 +9,12 @@ public record SaveOnboardingRequest(
     OnboardingStep Step,
     InvestorCategoryPayload? InvestorCategoryPayload,
     InvestmentProfilePayload? InvestmentProfilePayload,
-    KycPayload? KycPayload
+    KycPayload? KycPayload,
+    CorporateCompanyPayload? CorporateCompanyPayload = null,
+    CorporateAddressPayload? CorporateAddressPayload = null,
+    CorporateRepresentativePayload? CorporateRepresentativePayload = null,
+    CorporateQiiProfilePayload? CorporateQiiProfilePayload = null,
+    CorporateOciProfilePayload? CorporateOciProfilePayload = null,
+    CorporateQiiDocumentsPayload? CorporateQiiDocumentsPayload = null,
+    CorporateOciDocumentsPayload? CorporateOciDocumentsPayload = null
 );
