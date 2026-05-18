@@ -84,7 +84,39 @@ public class SignUpCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         result.ShouldHaveValidationErrorFor(x => x)
-            .WithErrorMessage("Corporate signup fields are only allowed when user type is CorporateInvestor.");
+            .WithErrorMessage("Company signup fields are only allowed when user type is CorporateInvestor or Fundraiser.");
+    }
+
+    [Fact]
+    public void Validate_FundraiserUserType_WithCompanyFields_ShouldNotHaveValidationError()
+    {
+        var command = CreateValidCommand() with
+        {
+            UserType = "Fundraiser",
+            CompanyLegalName = "Acme Fundraiser Ltd",
+            TradingBrandName = "Acme",
+            RegistrationType = "LTD",
+            RegistrationNumber = "RC998877",
+            CompanyLoginEmail = "ops@acmefund.com",
+            DateOfRegistration = new DateTime(2020, 1, 15),
+            CompanyWebsite = "https://acmefund.com",
+            BusinessAddress = "23A Unity Crescent, Lekki",
+            RegisteredAddress = "23A Unity Crescent, Lekki",
+            CompanyEmail = "hello@acmefund.com",
+            CompanyPhone = "+2348012345678",
+            RepresentativeFullName = "Jane Founder",
+            RepresentativeJobTitle = "CEO",
+            RepresentativePhoneNumber = "+2348098765432",
+            RepresentativeDateOfBirth = new DateTime(1990, 5, 10),
+            RepresentativeEmail = "jane@acmefund.com",
+            RepresentativeNationality = "Nigerian",
+            RepresentativeCountryOfResidence = "Nigeria",
+            RepresentativeAddress = "Lekki, Lagos"
+        };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldNotHaveValidationErrorFor(x => x);
     }
 
     [Fact]

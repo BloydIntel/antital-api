@@ -95,6 +95,36 @@ public class UserInvestmentProfile : TrackableEntity
     [MaxLength(500)]
     public string? RepresentativeAddress { get; set; }
 
+    // --- Fund raiser business documents ---
+    [MaxLength(500)]
+    public string? FounderAndTeamIntroductionDocumentPathOrKey { get; set; }
+    [MaxLength(500)]
+    public string? FundraisingDeckDocumentPathOrKey { get; set; }
+    [MaxLength(500)]
+    public string? InvestmentMemoDocumentPathOrKey { get; set; }
+    [MaxLength(500)]
+    public string? TermsOfOfferingDocumentPathOrKey { get; set; }
+    [MaxLength(500)]
+    public string? ProductDemoDocumentPathOrKey { get; set; }
+    [MaxLength(2000)]
+    public string? BusinessDescription { get; set; }
+    [MaxLength(100)]
+    public string? BusinessSector { get; set; }
+    [MaxLength(100)]
+    public string? InstrumentType { get; set; }
+    [MaxLength(100)]
+    public string? BusinessSize { get; set; }
+    public decimal? FundingTarget { get; set; }
+    [MaxLength(100)]
+    public string? InvestmentRound { get; set; }
+    [MaxLength(100)]
+    public string? FundRaiserPaymentMethod { get; set; }
+    [MaxLength(200)]
+    public string? FundRaiserPaymentReference { get; set; }
+    [MaxLength(100)]
+    public string? FundRaiserPaymentStatus { get; set; }
+    public bool? FundRaiserApplicationFeePaid { get; set; }
+
     // --- Corporate QII profile ---
     [MaxLength(200)]
     public string? QiiInstitutionTypes { get; set; }

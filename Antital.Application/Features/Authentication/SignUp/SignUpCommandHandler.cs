@@ -49,6 +49,7 @@ public class SignUpCommandHandler(
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenDays);
 
         var userType = MapUserType(request.UserType);
+        var isFundRaiser = userType == UserTypeEnum.FundRaiser;
 
         // 5. Create User entity
         var user = new User
@@ -62,12 +63,12 @@ public class SignUpCommandHandler(
             FirstName = request.FirstName,
             LastName = request.LastName,
             PreferredName = request.PreferredName,
-            PhoneNumber = request.PhoneNumber,
-            DateOfBirth = request.DateOfBirth,
-            Nationality = request.Nationality,
-            CountryOfResidence = request.CountryOfResidence,
-            StateOfResidence = request.StateOfResidence,
-            ResidentialAddress = request.ResidentialAddress,
+            PhoneNumber = request.PhoneNumber ?? string.Empty,
+            DateOfBirth = request.DateOfBirth ?? (isFundRaiser ? DateTime.MinValue : throw new BadRequestException("Invalid personal information.", new Dictionary<string, string[]> { { "DateOfBirth", ["Date of birth is required."] } })),
+            Nationality = request.Nationality ?? string.Empty,
+            CountryOfResidence = request.CountryOfResidence ?? string.Empty,
+            StateOfResidence = request.StateOfResidence ?? string.Empty,
+            ResidentialAddress = request.ResidentialAddress ?? string.Empty,
             HasAgreedToTerms = request.HasAgreedToTerms,
             RefreshTokenHash = refreshTokenHash,
             RefreshTokenExpiresAt = refreshTokenExpiry
@@ -82,13 +83,15 @@ public class SignUpCommandHandler(
         // 6. Save to database via UnitOfWork
         await userRepository.AddAsync(user, cancellationToken);
 
-        if (userType == UserTypeEnum.CorporateInvestor)
+        if (userType == UserTypeEnum.CorporateInvestor || userType == UserTypeEnum.FundRaiser)
         {
-            var corporateInvestorCategory = MapCorporateInvestorCategory(request.CorporateInvestorCategory);
+            var investorCategory = userType == UserTypeEnum.CorporateInvestor
+                ? MapCorporateInvestorCategory(request.CorporateInvestorCategory)
+                : InvestorCategory.OtherCorporateInvestor;
             var profile = new UserInvestmentProfile
             {
                 User = user,
-                InvestorCategory = corporateInvestorCategory,
+                InvestorCategory = investorCategory,
                 CompanyLegalName = request.CompanyLegalName,
                 TradingBrandName = request.TradingBrandName,
                 RegistrationType = request.RegistrationType,

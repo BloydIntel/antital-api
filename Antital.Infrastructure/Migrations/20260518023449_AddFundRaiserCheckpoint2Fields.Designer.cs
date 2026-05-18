@@ -3,6 +3,7 @@ using System;
 using Antital.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Antital.Infrastructure.Migrations
 {
     [DbContext(typeof(AntitalDBContext))]
-    partial class AntitalDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260518023449_AddFundRaiserCheckpoint2Fields")]
+    partial class AddFundRaiserCheckpoint2Fields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -256,21 +259,6 @@ namespace Antital.Infrastructure.Migrations
                     b.Property<string>("FounderAndTeamIntroductionDocumentPathOrKey")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
-
-                    b.Property<bool?>("FundRaiserApplicationFeePaid")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("FundRaiserPaymentMethod")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("FundRaiserPaymentReference")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("FundRaiserPaymentStatus")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
 
                     b.Property<decimal?>("FundingTarget")
                         .HasColumnType("numeric");

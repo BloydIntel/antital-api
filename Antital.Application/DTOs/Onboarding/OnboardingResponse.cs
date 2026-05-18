@@ -14,7 +14,8 @@ public record OnboardingResponse(
     OnboardingLocationInfoDto? LocationInfo,
     OnboardingInvestorProfileDto? InvestorProfile,
     OnboardingKycDto? Kyc,
-    OnboardingCorporateProfileDto? CorporateProfile = null
+    OnboardingCorporateProfileDto? CorporateProfile = null,
+    OnboardingFundRaiserProfileDto? FundRaiserProfile = null
 );
 
 public record OnboardingPersonalInfoDto(
@@ -130,4 +131,57 @@ public record OnboardingCorporateOciProfileDto(
     bool? HasFinancialCapacityToWithstandLoss,
     bool? UnderstandsCrowdfundingHighRiskLoss,
     bool? HasQualifiedInvestmentProfessionalsAccess
+);
+
+public record OnboardingFundRaiserProfileDto(
+    OnboardingFundRaiserCompanyDto? Company,
+    OnboardingFundRaiserRepresentativeDto? Representative,
+    OnboardingFundRaiserBusinessDocumentsDto? BusinessDocuments,
+    OnboardingFundRaiserPaymentDto? Payment
+);
+
+public record OnboardingFundRaiserCompanyDto(
+    string? CompanyLegalName,
+    string? TradingBrandName,
+    string? RegistrationType,
+    string? RegistrationNumber,
+    string? CompanyLoginEmail,
+    DateTime? DateOfRegistration,
+    string? CompanyWebsite,
+    string? BusinessAddress,
+    string? RegisteredAddress,
+    string? CompanyEmail,
+    string? CompanyPhone
+);
+
+public record OnboardingFundRaiserRepresentativeDto(
+    string? RepresentativeFullName,
+    string? RepresentativeJobTitle,
+    string? RepresentativePhoneNumber,
+    DateTime? RepresentativeDateOfBirth,
+    string? RepresentativeEmail,
+    string? RepresentativeNationality,
+    string? RepresentativeCountryOfResidence,
+    string? RepresentativeAddress
+);
+
+public record OnboardingFundRaiserBusinessDocumentsDto(
+    string? FounderAndTeamIntroductionDocumentPathOrKey,
+    string? FundraisingDeckDocumentPathOrKey,
+    string? InvestmentMemoDocumentPathOrKey,
+    string? TermsOfOfferingDocumentPathOrKey,
+    string? ProductDemoDocumentPathOrKey,
+    string? BusinessDescription,
+    string? BusinessSector,
+    string? InstrumentType,
+    string? BusinessSize,
+    decimal? FundingTarget,
+    string? InvestmentRound
+);
+
+public record OnboardingFundRaiserPaymentDto(
+    string? PaymentMethod,
+    string? PaymentReference,
+    string? PaymentStatus,
+    bool? ApplicationFeePaid
 );

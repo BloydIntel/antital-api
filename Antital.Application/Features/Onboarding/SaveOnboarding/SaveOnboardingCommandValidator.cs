@@ -21,9 +21,10 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
                 x.InvestorCategoryPayload != null
                 || x.CorporateCompanyPayload != null
                 || x.CorporateAddressPayload != null
-                || x.CorporateRepresentativePayload != null)
+                || x.CorporateRepresentativePayload != null
+                || x.FundRaiserCompanyPayload != null)
             .When(x => x.Step == OnboardingStep.InvestorCategory)
-            .WithMessage("InvestorCategory step requires investorCategoryPayload or a corporate company/address/representative payload.");
+            .WithMessage("InvestorCategory step requires investorCategoryPayload or a corporate/fund raiser company payload.");
 
         RuleFor(x => x)
             .Must(x => x.Step != OnboardingStep.InvestorCategory || !HasNonInvestorCategoryPayloads(x))
@@ -39,11 +40,53 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
 
         RuleFor(x => x)
             .Must(x => x.Step != OnboardingStep.Kyc || IsValidKycPayloadCombination(x))
-            .WithMessage("Kyc step requires kycPayload and/or exactly one corporate documents payload: corporateQiiDocumentsPayload or corporateOciDocumentsPayload.");
+            .WithMessage("Kyc step requires kycPayload and/or one document payload: corporateQiiDocumentsPayload, corporateOciDocumentsPayload, or fundRaiserBusinessDocumentsPayload.");
 
         RuleFor(x => x)
             .Must(x => x.Step != OnboardingStep.Kyc || !HasPayloadsOutsideKyc(x))
-            .WithMessage("Kyc step does not allow investor category, investment profile, or corporate company/address/representative payloads.");
+            .WithMessage("Kyc step does not allow investor category, investment profile, or company payloads.");
+
+        RuleFor(x => x)
+            .Must(x => x.Step != OnboardingStep.Review || x.FundRaiserPaymentPayload != null)
+            .WithMessage("Review step requires fundRaiserPaymentPayload.");
+
+        RuleFor(x => x)
+            .Must(x => x.Step != OnboardingStep.Review || !HasPayloadsOutsideReview(x))
+            .WithMessage("Review step only supports fundRaiserPaymentPayload.");
+
+        When(x => x.Step == OnboardingStep.Review && x.FundRaiserPaymentPayload != null, () =>
+        {
+            RuleFor(x => x.FundRaiserPaymentPayload!.PaymentMethod).NotEmpty();
+            RuleFor(x => x.FundRaiserPaymentPayload!.PaymentReference).NotEmpty();
+            RuleFor(x => x.FundRaiserPaymentPayload!.PaymentStatus).NotEmpty();
+            RuleFor(x => x.FundRaiserPaymentPayload!.ApplicationFeePaid).Equal(true);
+        });
+
+        When(x => x.Step == OnboardingStep.Kyc && x.FundRaiserRepresentativePayload != null, () =>
+        {
+            RuleFor(x => x.FundRaiserRepresentativePayload!.RepresentativeFullName).NotEmpty();
+            RuleFor(x => x.FundRaiserRepresentativePayload!.RepresentativeJobTitle).NotEmpty();
+            RuleFor(x => x.FundRaiserRepresentativePayload!.RepresentativePhoneNumber).NotEmpty();
+            RuleFor(x => x.FundRaiserRepresentativePayload!.RepresentativeEmail).NotEmpty().EmailAddress();
+            RuleFor(x => x.FundRaiserRepresentativePayload!.RepresentativeNationality).NotEmpty();
+            RuleFor(x => x.FundRaiserRepresentativePayload!.RepresentativeCountryOfResidence).NotEmpty();
+            RuleFor(x => x.FundRaiserRepresentativePayload!.RepresentativeAddress).NotEmpty();
+        });
+
+        When(x => x.Step == OnboardingStep.Kyc && x.FundRaiserBusinessDocumentsPayload != null, () =>
+        {
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.FounderAndTeamIntroductionDocumentPathOrKey).NotEmpty();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.FundraisingDeckDocumentPathOrKey).NotEmpty();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.InvestmentMemoDocumentPathOrKey).NotEmpty();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.TermsOfOfferingDocumentPathOrKey).NotEmpty();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.BusinessDescription).NotEmpty();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.BusinessSector).NotEmpty();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.InstrumentType).NotEmpty();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.BusinessSize).NotEmpty();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.InvestmentRound).NotEmpty();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.FundingTarget).NotNull();
+            RuleFor(x => x.FundRaiserBusinessDocumentsPayload!.FundingTarget).GreaterThan(0);
+        });
 
         RuleFor(x => x.InvestmentProfilePayload)
             .NotNull()
@@ -55,7 +98,9 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
             .NotNull()
             .When(x => x.Step == OnboardingStep.Kyc
                 && x.CorporateQiiDocumentsPayload == null
-                && x.CorporateOciDocumentsPayload == null);
+                && x.CorporateOciDocumentsPayload == null
+                && x.FundRaiserBusinessDocumentsPayload == null
+                && x.FundRaiserRepresentativePayload == null);
 
         When(x => x.Step == OnboardingStep.Kyc && x.KycPayload != null, () =>
         {
@@ -119,14 +164,18 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
         var corporateDocumentsPayloadCount = 0;
         if (x.CorporateQiiDocumentsPayload != null) corporateDocumentsPayloadCount++;
         if (x.CorporateOciDocumentsPayload != null) corporateDocumentsPayloadCount++;
+        if (x.FundRaiserBusinessDocumentsPayload != null) corporateDocumentsPayloadCount++;
 
-        // At least one KYC-related payload must be present, and at most one corporate docs schema can be sent.
+        // At least one KYC-related payload must be present, and at most one document schema can be sent.
         return (hasKycPayload || corporateDocumentsPayloadCount == 1) && corporateDocumentsPayloadCount <= 1;
     }
 
     private static bool HasNonInvestorCategoryPayloads(SaveOnboardingCommand x) =>
         x.InvestmentProfilePayload != null
         || x.KycPayload != null
+        || x.FundRaiserBusinessDocumentsPayload != null
+        || x.FundRaiserRepresentativePayload != null
+        || x.FundRaiserPaymentPayload != null
         || x.CorporateQiiProfilePayload != null
         || x.CorporateOciProfilePayload != null
         || x.CorporateQiiDocumentsPayload != null
@@ -135,6 +184,10 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
     private static bool HasPayloadsOutsideInvestmentProfile(SaveOnboardingCommand x) =>
         x.InvestorCategoryPayload != null
         || x.KycPayload != null
+        || x.FundRaiserBusinessDocumentsPayload != null
+        || x.FundRaiserRepresentativePayload != null
+        || x.FundRaiserPaymentPayload != null
+        || x.FundRaiserCompanyPayload != null
         || x.CorporateCompanyPayload != null
         || x.CorporateAddressPayload != null
         || x.CorporateRepresentativePayload != null
@@ -144,9 +197,26 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
     private static bool HasPayloadsOutsideKyc(SaveOnboardingCommand x) =>
         x.InvestorCategoryPayload != null
         || x.InvestmentProfilePayload != null
+        || x.FundRaiserCompanyPayload != null
         || x.CorporateCompanyPayload != null
         || x.CorporateAddressPayload != null
         || x.CorporateRepresentativePayload != null
         || x.CorporateQiiProfilePayload != null
-        || x.CorporateOciProfilePayload != null;
+        || x.CorporateOciProfilePayload != null
+        || x.FundRaiserPaymentPayload != null;
+
+    private static bool HasPayloadsOutsideReview(SaveOnboardingCommand x) =>
+        x.InvestorCategoryPayload != null
+        || x.InvestmentProfilePayload != null
+        || x.KycPayload != null
+        || x.FundRaiserCompanyPayload != null
+        || x.FundRaiserBusinessDocumentsPayload != null
+        || x.FundRaiserRepresentativePayload != null
+        || x.CorporateCompanyPayload != null
+        || x.CorporateAddressPayload != null
+        || x.CorporateRepresentativePayload != null
+        || x.CorporateQiiProfilePayload != null
+        || x.CorporateOciProfilePayload != null
+        || x.CorporateQiiDocumentsPayload != null
+        || x.CorporateOciDocumentsPayload != null;
 }
