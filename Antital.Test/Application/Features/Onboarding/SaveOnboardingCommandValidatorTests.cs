@@ -174,7 +174,7 @@ public class SaveOnboardingCommandValidatorTests
     }
 
     [Fact]
-    public void KycStep_WithKycAndCorporateDocsTogether_Fails()
+    public void KycStep_WithKycAndCorporateDocsTogether_Passes()
     {
         var cmd = new SaveOnboardingCommand(
             OnboardingStep.Kyc,
@@ -187,6 +187,30 @@ public class SaveOnboardingCommandValidatorTests
                 "board.pdf"
             )
         );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void KycStep_WithBothCorporateDocPayloads_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            null,
+            CorporateQiiDocumentsPayload: new CorporateQiiDocumentsPayload(
+                "qii-status.pdf",
+                "qii-license.pdf",
+                "qii-board.pdf"
+            ),
+            CorporateOciDocumentsPayload: new CorporateOciDocumentsPayload(
+                "oci-inc.pdf",
+                "oci-status.pdf",
+                "oci-board.pdf"
+            )
+        );
+
         var result = _validator.TestValidate(cmd);
         result.ShouldHaveValidationErrorFor(c => c);
     }

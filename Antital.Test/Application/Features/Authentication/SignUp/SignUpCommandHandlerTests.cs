@@ -15,6 +15,7 @@ namespace Antital.Test.Application.Features.Authentication.SignUp;
 public class SignUpCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<IUserInvestmentProfileRepository> _userInvestmentProfileRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<IEmailService> _emailServiceMock;
@@ -26,6 +27,7 @@ public class SignUpCommandHandlerTests
     public SignUpCommandHandlerTests()
     {
         _userRepositoryMock = new Mock<IUserRepository>();
+        _userInvestmentProfileRepositoryMock = new Mock<IUserInvestmentProfileRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _emailServiceMock = new Mock<IEmailService>();
@@ -41,6 +43,7 @@ public class SignUpCommandHandlerTests
 
         _handler = new SignUpCommandHandler(
             _userRepositoryMock.Object,
+            _userInvestmentProfileRepositoryMock.Object,
             _passwordHasherMock.Object,
             _jwtTokenServiceMock.Object,
             _emailServiceMock.Object,

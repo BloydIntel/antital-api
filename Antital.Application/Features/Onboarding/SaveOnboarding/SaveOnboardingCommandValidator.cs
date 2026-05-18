@@ -38,8 +38,8 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
             .WithMessage("InvestmentProfile step does not allow investor category, KYC, or corporate document payloads.");
 
         RuleFor(x => x)
-            .Must(x => x.Step != OnboardingStep.Kyc || CountKycPayloads(x) == 1)
-            .WithMessage("Kyc step requires exactly one payload: kycPayload, corporateQiiDocumentsPayload, or corporateOciDocumentsPayload.");
+            .Must(x => x.Step != OnboardingStep.Kyc || IsValidKycPayloadCombination(x))
+            .WithMessage("Kyc step requires kycPayload and/or exactly one corporate documents payload: corporateQiiDocumentsPayload or corporateOciDocumentsPayload.");
 
         RuleFor(x => x)
             .Must(x => x.Step != OnboardingStep.Kyc || !HasPayloadsOutsideKyc(x))
@@ -113,13 +113,15 @@ public class SaveOnboardingCommandValidator : AbstractValidator<SaveOnboardingCo
         return count;
     }
 
-    private static int CountKycPayloads(SaveOnboardingCommand x)
+    private static bool IsValidKycPayloadCombination(SaveOnboardingCommand x)
     {
-        var count = 0;
-        if (x.KycPayload != null) count++;
-        if (x.CorporateQiiDocumentsPayload != null) count++;
-        if (x.CorporateOciDocumentsPayload != null) count++;
-        return count;
+        var hasKycPayload = x.KycPayload != null;
+        var corporateDocumentsPayloadCount = 0;
+        if (x.CorporateQiiDocumentsPayload != null) corporateDocumentsPayloadCount++;
+        if (x.CorporateOciDocumentsPayload != null) corporateDocumentsPayloadCount++;
+
+        // At least one KYC-related payload must be present, and at most one corporate docs schema can be sent.
+        return (hasKycPayload || corporateDocumentsPayloadCount == 1) && corporateDocumentsPayloadCount <= 1;
     }
 
     private static bool HasNonInvestorCategoryPayloads(SaveOnboardingCommand x) =>

@@ -13,6 +13,7 @@ namespace Antital.Application.Features.Authentication.SignUp;
 
 public class SignUpCommandHandler(
     IUserRepository userRepository,
+    IUserInvestmentProfileRepository userInvestmentProfileRepository,
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
     IEmailService emailService,
@@ -47,12 +48,14 @@ public class SignUpCommandHandler(
         var refreshTokenHash = TokenGenerator.HashToken(refreshToken);
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenDays);
 
+        var userType = MapUserType(request.UserType);
+
         // 5. Create User entity
         var user = new User
         {
             Email = request.Email,
             PasswordHash = passwordHash,
-            UserType = UserTypeEnum.IndividualInvestor, // Starting with IndividualInvestor as per requirements
+            UserType = userType,
             IsEmailVerified = false,
             EmailVerificationToken = verificationToken,
             EmailVerificationTokenExpiry = tokenExpiry,
@@ -80,6 +83,36 @@ public class SignUpCommandHandler(
         await userRepository.AddAsync(user, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        if (userType == UserTypeEnum.CorporateInvestor)
+        {
+            var profile = new UserInvestmentProfile
+            {
+                UserId = user.Id,
+                InvestorCategory = InvestorCategory.QualifiedInstitutionalInvestor,
+                CompanyLegalName = request.CompanyLegalName,
+                TradingBrandName = request.TradingBrandName,
+                RegistrationType = request.RegistrationType,
+                RegistrationNumber = request.RegistrationNumber,
+                CompanyLoginEmail = request.CompanyLoginEmail,
+                DateOfRegistration = request.DateOfRegistration,
+                CompanyWebsite = request.CompanyWebsite,
+                BusinessAddress = request.BusinessAddress,
+                RegisteredAddress = request.RegisteredAddress,
+                CompanyEmail = request.CompanyEmail,
+                CompanyPhone = request.CompanyPhone,
+                RepresentativeFullName = request.RepresentativeFullName,
+                RepresentativeJobTitle = request.RepresentativeJobTitle,
+                RepresentativePhoneNumber = request.RepresentativePhoneNumber,
+                RepresentativeDateOfBirth = request.RepresentativeDateOfBirth,
+                RepresentativeEmail = request.RepresentativeEmail,
+                RepresentativeNationality = request.RepresentativeNationality,
+                RepresentativeCountryOfResidence = request.RepresentativeCountryOfResidence,
+                RepresentativeAddress = request.RepresentativeAddress
+            };
+            await userInvestmentProfileRepository.AddAsync(profile, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
         // 7. Send verification email via IEmailService
         await emailService.SendVerificationEmailAsync(request.Email, verificationToken, cancellationToken);
 
@@ -101,6 +134,26 @@ public class SignUpCommandHandler(
         result.AddValue(response);
         result.OK();
         return result;
+    }
+
+    private static UserTypeEnum MapUserType(string userType)
+    {
+        if (userType.Equals("IndividualInvestor", StringComparison.OrdinalIgnoreCase))
+            return UserTypeEnum.IndividualInvestor;
+
+        if (userType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase))
+            return UserTypeEnum.CorporateInvestor;
+
+        if (userType.Equals("Fundraiser", StringComparison.OrdinalIgnoreCase)
+            || userType.Equals("FundRaiser", StringComparison.OrdinalIgnoreCase))
+            return UserTypeEnum.FundRaiser;
+
+        throw new BadRequestException(
+            "Invalid user type.",
+            new Dictionary<string, string[]>
+            {
+                { "UserType", ["User type must be IndividualInvestor, CorporateInvestor, or Fundraiser."] }
+            });
     }
 
 }

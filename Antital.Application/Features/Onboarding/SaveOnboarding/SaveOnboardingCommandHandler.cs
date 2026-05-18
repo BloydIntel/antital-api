@@ -58,11 +58,21 @@ public class SaveOnboardingCommandHandler(
                 onboarding.CurrentStep = OnboardingStep.Kyc;
                 break;
             case OnboardingStep.Kyc:
-                if (request.KycPayload != null)
+                if (request.KycPayload != null
+                    && (request.CorporateQiiDocumentsPayload != null || request.CorporateOciDocumentsPayload != null))
+                {
+                    await SaveKycAndCorporateDocumentsAsync(
+                        userId,
+                        request.KycPayload,
+                        request.CorporateQiiDocumentsPayload,
+                        request.CorporateOciDocumentsPayload,
+                        cancellationToken);
+                }
+                else if (request.KycPayload != null)
                 {
                     await SaveKycAsync(userId, request.KycPayload, cancellationToken);
                 }
-                else
+                else if (request.CorporateQiiDocumentsPayload != null || request.CorporateOciDocumentsPayload != null)
                 {
                     await SaveCorporateDocumentsAsync(userId, request.CorporateQiiDocumentsPayload, request.CorporateOciDocumentsPayload, cancellationToken);
                 }
@@ -253,6 +263,50 @@ public class SaveOnboardingCommandHandler(
         kyc.ProofOfAddressVerifiedAt = result.ProofOfAddressVerifiedAt;
         kyc.SelfieVerifiedAt = result.SelfieVerifiedAt;
         kyc.IncomeVerifiedAt = result.IncomeVerifiedAt;
+    }
+
+    private async Task SaveKycAndCorporateDocumentsAsync(
+        int userId,
+        KycPayload kycPayload,
+        CorporateQiiDocumentsPayload? qiiPayload,
+        CorporateOciDocumentsPayload? ociPayload,
+        CancellationToken cancellationToken)
+    {
+        var input = new KycVerificationInput(
+            userId,
+            (int)kycPayload.IdType,
+            kycPayload.Nin,
+            kycPayload.Bvn,
+            kycPayload.GovernmentIdDocumentPathOrKey,
+            kycPayload.ProofOfAddressDocumentPathOrKey,
+            kycPayload.SelfieVerificationPathOrKey,
+            kycPayload.IncomeVerificationPathOrKey,
+            kycPayload.IncomeVerificationDocumentTypesCommaSeparated
+        );
+        var result = await kycVerificationService.ProcessAsync(input, cancellationToken);
+
+        var kyc = await userKycRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = kyc == null;
+        kyc ??= new UserKyc { UserId = userId };
+
+        Apply(kycPayload, result, kyc);
+
+        if (qiiPayload != null)
+        {
+            kyc.RecentStatusReportDocumentPathOrKey = qiiPayload.RecentStatusReportDocumentPathOrKey;
+            kyc.QiiLicenseEvidenceDocumentPathOrKey = qiiPayload.QiiLicenseEvidenceDocumentPathOrKey;
+            kyc.BoardResolutionDocumentPathOrKey = qiiPayload.BoardResolutionDocumentPathOrKey;
+        }
+
+        if (ociPayload != null)
+        {
+            kyc.IncorporationCertificateDocumentPathOrKey = ociPayload.IncorporationCertificateDocumentPathOrKey;
+            kyc.RecentStatusReportDocumentPathOrKey = ociPayload.RecentStatusReportDocumentPathOrKey;
+            kyc.BoardResolutionDocumentPathOrKey = ociPayload.BoardResolutionDocumentPathOrKey;
+        }
+
+        if (isNew) { await userKycRepository.AddAsync(kyc, cancellationToken); }
+        else { await userKycRepository.UpdateAsync(kyc, cancellationToken); }
     }
 
     private async Task SaveCorporateDocumentsAsync(

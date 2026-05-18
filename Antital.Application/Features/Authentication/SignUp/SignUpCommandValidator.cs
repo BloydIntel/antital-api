@@ -7,6 +7,10 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
 {
     public SignUpCommandValidator()
     {
+        RuleFor(x => x.UserType)
+            .NotEmpty().WithMessage("User type is required.")
+            .Must(BeSupportedUserType).WithMessage("User type must be IndividualInvestor, CorporateInvestor, or Fundraiser.");
+
         // Email validation
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("Email is required.")
@@ -97,5 +101,16 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
             age--;
 
         return age >= 18;
+    }
+
+    private static bool BeSupportedUserType(string? userType)
+    {
+        if (string.IsNullOrWhiteSpace(userType))
+            return false;
+
+        return userType.Equals("IndividualInvestor", StringComparison.OrdinalIgnoreCase)
+            || userType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase)
+            || userType.Equals("Fundraiser", StringComparison.OrdinalIgnoreCase)
+            || userType.Equals("FundRaiser", StringComparison.OrdinalIgnoreCase);
     }
 }
