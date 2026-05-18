@@ -3,6 +3,7 @@ using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
 using BuildingBlocks.Application.Exceptions;
 using BuildingBlocks.Application.Features;
+using Microsoft.Extensions.Logging;
 
 namespace Antital.Application.Features.Onboarding.SubmitOnboarding;
 
@@ -11,7 +12,9 @@ public class SubmitOnboardingCommandHandler(
     IAntitalUnitOfWork unitOfWork,
     IUserOnboardingRepository userOnboardingRepository,
     IUserInvestmentProfileRepository userInvestmentProfileRepository,
-    IUserKycRepository userKycRepository
+    IUserKycRepository userKycRepository,
+    IEmailService emailService,
+    ILogger<SubmitOnboardingCommandHandler> logger
 ) : ICommandQueryHandler<SubmitOnboardingCommand>
 {
     public async Task<Result> Handle(SubmitOnboardingCommand request, CancellationToken cancellationToken)
@@ -41,6 +44,15 @@ public class SubmitOnboardingCommandHandler(
 
         await userOnboardingRepository.UpdateAsync(onboarding, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await emailService.SendOnboardingSubmittedEmailAsync(user.Email, user.UserType, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send onboarding completion email to {Email}.", user.Email);
+        }
 
         var result = new Result();
         result.OK();

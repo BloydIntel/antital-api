@@ -1,3 +1,4 @@
+using Antital.Domain.Enums;
 using Antital.Domain.Interfaces;
 using System.IO;
 using System.Net;
@@ -131,6 +132,37 @@ public class EmailService : IEmailService
         LogEmail("Welcome", email, _settings.BaseUrl ?? string.Empty, htmlBody);
 
         return SendEmailAsync(email, "Welcome to Antital", htmlBody, cancellationToken);
+    }
+
+    public Task SendOnboardingSubmittedEmailAsync(string email, UserTypeEnum userType, CancellationToken cancellationToken)
+    {
+        var (subject, bodyIntro, bodyDetail) = userType switch
+        {
+            UserTypeEnum.CorporateInvestor => (
+                "Your Antital corporate onboarding has been submitted",
+                "Thank you for submitting your corporate onboarding application.",
+                "We have received your submission and our compliance team is reviewing your information. We may contact you if additional documentation is required."),
+            UserTypeEnum.FundRaiser => (
+                "Your Antital fundraiser onboarding has been submitted",
+                "Thank you for submitting your fundraiser onboarding application.",
+                "We have received your submission and our issuer and compliance teams are reviewing your information. We will contact you by email with next steps."),
+            _ => (
+                "Your Antital onboarding has been submitted",
+                "Thank you for submitting your onboarding application.",
+                "We have received your submission and our team is reviewing your information. We will notify you when there are updates.")
+        };
+
+        var htmlBody = $"""
+            <html><body style="font-family: Arial, sans-serif; color: #111827;">
+            <p>Hello,</p>
+            <p>{bodyIntro}</p>
+            <p>{bodyDetail}</p>
+            <p style="color: #6b7280; font-size: 14px;">You received this email for {email}.</p>
+            </body></html>
+            """;
+
+        LogEmail("Onboarding Submitted", email, _settings.BaseUrl ?? string.Empty, htmlBody);
+        return SendEmailAsync(email, subject, htmlBody, cancellationToken);
     }
 
     private async Task SendEmailAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken)
