@@ -18,6 +18,7 @@ public record SignUpCommand(
     string ConfirmPassword,
     bool HasAgreedToTerms,
     string UserType = "IndividualInvestor",
+    string? CorporateInvestorCategory = null,
     string? CompanyLegalName = null,
     string? TradingBrandName = null,
     string? RegistrationType = null,

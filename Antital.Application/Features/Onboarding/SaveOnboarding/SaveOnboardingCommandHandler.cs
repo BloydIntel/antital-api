@@ -18,7 +18,8 @@ public class SaveOnboardingCommandHandler(
 {
     public async Task<Result> Handle(SaveOnboardingCommand request, CancellationToken cancellationToken)
     {
-        var (userId, _) = await userAccess.RequireVerifiedUserAsync(cancellationToken);
+        var (userId, user) = await userAccess.RequireVerifiedUserAsync(cancellationToken);
+        EnsureCorporateUserForCorporateDocumentPayloads(user, request);
         var onboarding = await userOnboardingRepository.GetOrCreateForUserAsync(userId, cancellationToken);
 
         switch (request.Step)
@@ -92,6 +93,22 @@ public class SaveOnboardingCommandHandler(
         var result = new Result();
         result.OK();
         return result;
+    }
+
+    private static void EnsureCorporateUserForCorporateDocumentPayloads(User user, SaveOnboardingCommand request)
+    {
+        var hasCorporateDocumentPayload = request.CorporateQiiDocumentsPayload != null
+            || request.CorporateOciDocumentsPayload != null;
+
+        if (hasCorporateDocumentPayload && user.UserType != UserTypeEnum.CorporateInvestor)
+        {
+            throw new BadRequestException(
+                "Corporate document payloads are only allowed for CorporateInvestor users.",
+                new Dictionary<string, string[]>
+                {
+                    { "CorporateDocuments", ["Corporate document payloads require user type CorporateInvestor."] }
+                });
+        }
     }
 
     private async Task SaveInvestorCategoryAsync(int userId, InvestorCategoryPayload payload, CancellationToken cancellationToken)

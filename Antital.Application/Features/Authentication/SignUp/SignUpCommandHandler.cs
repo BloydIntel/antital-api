@@ -81,14 +81,14 @@ public class SignUpCommandHandler(
 
         // 6. Save to database via UnitOfWork
         await userRepository.AddAsync(user, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         if (userType == UserTypeEnum.CorporateInvestor)
         {
+            var corporateInvestorCategory = MapCorporateInvestorCategory(request.CorporateInvestorCategory);
             var profile = new UserInvestmentProfile
             {
-                UserId = user.Id,
-                InvestorCategory = InvestorCategory.QualifiedInstitutionalInvestor,
+                User = user,
+                InvestorCategory = corporateInvestorCategory,
                 CompanyLegalName = request.CompanyLegalName,
                 TradingBrandName = request.TradingBrandName,
                 RegistrationType = request.RegistrationType,
@@ -110,8 +110,9 @@ public class SignUpCommandHandler(
                 RepresentativeAddress = request.RepresentativeAddress
             };
             await userInvestmentProfileRepository.AddAsync(profile, cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         // 7. Send verification email via IEmailService
         await emailService.SendVerificationEmailAsync(request.Email, verificationToken, cancellationToken);
@@ -144,8 +145,7 @@ public class SignUpCommandHandler(
         if (userType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase))
             return UserTypeEnum.CorporateInvestor;
 
-        if (userType.Equals("Fundraiser", StringComparison.OrdinalIgnoreCase)
-            || userType.Equals("FundRaiser", StringComparison.OrdinalIgnoreCase))
+        if (userType.Equals("Fundraiser", StringComparison.OrdinalIgnoreCase))
             return UserTypeEnum.FundRaiser;
 
         throw new BadRequestException(
@@ -153,6 +153,32 @@ public class SignUpCommandHandler(
             new Dictionary<string, string[]>
             {
                 { "UserType", ["User type must be IndividualInvestor, CorporateInvestor, or Fundraiser."] }
+            });
+    }
+
+    private static InvestorCategory MapCorporateInvestorCategory(string? category)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            throw new BadRequestException(
+                "Invalid corporate investor category.",
+                new Dictionary<string, string[]>
+                {
+                    { "CorporateInvestorCategory", ["Corporate investor category is required for CorporateInvestor signup."] }
+                });
+        }
+
+        if (category.Equals("QualifiedInstitutionalInvestor", StringComparison.OrdinalIgnoreCase))
+            return InvestorCategory.QualifiedInstitutionalInvestor;
+
+        if (category.Equals("OtherCorporateInvestor", StringComparison.OrdinalIgnoreCase))
+            return InvestorCategory.OtherCorporateInvestor;
+
+        throw new BadRequestException(
+            "Invalid corporate investor category.",
+            new Dictionary<string, string[]>
+            {
+                { "CorporateInvestorCategory", ["Corporate investor category must be QualifiedInstitutionalInvestor or OtherCorporateInvestor."] }
             });
     }
 

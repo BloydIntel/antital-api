@@ -76,6 +76,18 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
         // HasAgreedToTerms validation
         RuleFor(x => x.HasAgreedToTerms)
             .Must(x => x).WithMessage("You must agree to the terms and conditions to register.");
+
+        RuleFor(x => x)
+            .Must(NotProvideCorporateFieldsForNonCorporateUserType)
+            .WithMessage("Corporate signup fields are only allowed when user type is CorporateInvestor.");
+
+        RuleFor(x => x)
+            .Must(HaveValidCorporateCategoryIfCorporateUserType)
+            .WithMessage("CorporateInvestor signup requires corporate investor category: QualifiedInstitutionalInvestor or OtherCorporateInvestor.");
+
+        RuleFor(x => x)
+            .Must(NotProvideCorporateCategoryForNonCorporateUserType)
+            .WithMessage("Corporate investor category is only allowed when user type is CorporateInvestor.");
     }
 
     private static bool BeValidPassword(string? password)
@@ -110,7 +122,52 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
 
         return userType.Equals("IndividualInvestor", StringComparison.OrdinalIgnoreCase)
             || userType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase)
-            || userType.Equals("Fundraiser", StringComparison.OrdinalIgnoreCase)
-            || userType.Equals("FundRaiser", StringComparison.OrdinalIgnoreCase);
+            || userType.Equals("Fundraiser", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool NotProvideCorporateFieldsForNonCorporateUserType(SignUpCommand request)
+    {
+        if (request.UserType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return string.IsNullOrWhiteSpace(request.CompanyLegalName)
+            && string.IsNullOrWhiteSpace(request.TradingBrandName)
+            && string.IsNullOrWhiteSpace(request.RegistrationType)
+            && string.IsNullOrWhiteSpace(request.RegistrationNumber)
+            && string.IsNullOrWhiteSpace(request.CompanyLoginEmail)
+            && !request.DateOfRegistration.HasValue
+            && string.IsNullOrWhiteSpace(request.CompanyWebsite)
+            && string.IsNullOrWhiteSpace(request.BusinessAddress)
+            && string.IsNullOrWhiteSpace(request.RegisteredAddress)
+            && string.IsNullOrWhiteSpace(request.CompanyEmail)
+            && string.IsNullOrWhiteSpace(request.CompanyPhone)
+            && string.IsNullOrWhiteSpace(request.RepresentativeFullName)
+            && string.IsNullOrWhiteSpace(request.RepresentativeJobTitle)
+            && string.IsNullOrWhiteSpace(request.RepresentativePhoneNumber)
+            && !request.RepresentativeDateOfBirth.HasValue
+            && string.IsNullOrWhiteSpace(request.RepresentativeEmail)
+            && string.IsNullOrWhiteSpace(request.RepresentativeNationality)
+            && string.IsNullOrWhiteSpace(request.RepresentativeCountryOfResidence)
+            && string.IsNullOrWhiteSpace(request.RepresentativeAddress);
+    }
+
+    private static bool HaveValidCorporateCategoryIfCorporateUserType(SignUpCommand request)
+    {
+        if (!request.UserType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return request.CorporateInvestorCategory != null
+            && (
+                request.CorporateInvestorCategory.Equals("QualifiedInstitutionalInvestor", StringComparison.OrdinalIgnoreCase)
+                || request.CorporateInvestorCategory.Equals("OtherCorporateInvestor", StringComparison.OrdinalIgnoreCase)
+            );
+    }
+
+    private static bool NotProvideCorporateCategoryForNonCorporateUserType(SignUpCommand request)
+    {
+        if (request.UserType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return string.IsNullOrWhiteSpace(request.CorporateInvestorCategory);
     }
 }
