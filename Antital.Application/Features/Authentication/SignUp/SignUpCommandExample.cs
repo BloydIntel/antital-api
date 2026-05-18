@@ -10,6 +10,7 @@ public class SignUpCommandExample : IExamplesProvider<SignUpCommand>
             FirstName: "John",
             LastName: "Doe",
             Email: "john.doe@example.com",
+            UserType: "IndividualInvestor",
             PreferredName: "Johnny",
             PhoneNumber: "+2348012345678",
             DateOfBirth: new DateTime(1990, 1, 1),

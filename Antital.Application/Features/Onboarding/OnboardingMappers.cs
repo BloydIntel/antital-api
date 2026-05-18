@@ -107,4 +107,54 @@ public static class OnboardingMappers
             )
         );
     }
+
+    public static OnboardingFundRaiserProfileDto? ToFundRaiserDto(this UserInvestmentProfile? profile)
+    {
+        if (profile == null) return null;
+
+        return new OnboardingFundRaiserProfileDto(
+            new OnboardingFundRaiserCompanyDto(
+                profile.CompanyLegalName,
+                profile.TradingBrandName,
+                profile.RegistrationType,
+                profile.RegistrationNumber,
+                profile.CompanyLoginEmail,
+                profile.DateOfRegistration,
+                profile.CompanyWebsite,
+                profile.BusinessAddress,
+                profile.RegisteredAddress,
+                profile.CompanyEmail,
+                profile.CompanyPhone
+            ),
+            new OnboardingFundRaiserRepresentativeDto(
+                profile.RepresentativeFullName,
+                profile.RepresentativeJobTitle,
+                profile.RepresentativePhoneNumber,
+                profile.RepresentativeDateOfBirth,
+                profile.RepresentativeEmail,
+                profile.RepresentativeNationality,
+                profile.RepresentativeCountryOfResidence,
+                profile.RepresentativeAddress
+            ),
+            new OnboardingFundRaiserBusinessDocumentsDto(
+                profile.FounderAndTeamIntroductionDocumentPathOrKey,
+                profile.FundraisingDeckDocumentPathOrKey,
+                profile.InvestmentMemoDocumentPathOrKey,
+                profile.TermsOfOfferingDocumentPathOrKey,
+                profile.ProductDemoDocumentPathOrKey,
+                profile.BusinessDescription,
+                profile.BusinessSector,
+                profile.InstrumentType,
+                profile.BusinessSize,
+                profile.FundingTarget,
+                profile.InvestmentRound
+            ),
+            new OnboardingFundRaiserPaymentDto(
+                profile.FundRaiserPaymentMethod,
+                profile.FundRaiserPaymentReference,
+                profile.FundRaiserPaymentStatus,
+                profile.FundRaiserApplicationFeePaid
+            )
+        );
+    }
 }

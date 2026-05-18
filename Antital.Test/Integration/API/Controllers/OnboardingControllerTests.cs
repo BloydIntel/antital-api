@@ -221,6 +221,130 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task Put_FundRaiserCompanyStep_SavesAndHydratesOnGet()
+    {
+        var user = SeedUser(email: "fundraiser-company@example.com", userType: UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        var onboarding = new UserOnboarding
+        {
+            UserId = user.Id,
+            FlowType = OnboardingFlowType.Startup,
+            CurrentStep = OnboardingStep.InvestorCategory,
+            Status = OnboardingStatus.Draft
+        };
+        _context.UserOnboardings.Add(onboarding);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(userId: user.Id);
+
+        var request = new SaveOnboardingRequest(
+            Step: OnboardingStep.InvestorCategory,
+            InvestorCategoryPayload: null,
+            InvestmentProfilePayload: null,
+            KycPayload: null,
+            FundRaiserCompanyPayload: new FundRaiserCompanyPayload(
+                CompanyLegalName: "Acme Fundraise Limited",
+                TradingBrandName: "Acme Raise",
+                RegistrationType: "LTD",
+                RegistrationNumber: "RC123456",
+                CompanyLoginEmail: "ops@acmefundraise.com",
+                DateOfRegistration: new DateTime(2020, 1, 15),
+                CompanyWebsite: "https://acmefundraise.com",
+                BusinessAddress: "23A Unity Crescent Lekki",
+                RegisteredAddress: "23A Unity Crescent Lekki",
+                CompanyEmail: "info@acmefundraise.com",
+                CompanyPhone: "+2348012345678"
+            )
+        );
+
+        var putResponse = await authClient.PutAsJsonAsync("/api/onboarding", request, JsonOptions);
+        putResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResponse = await authClient.GetAsync("/api/onboarding");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var getResult = await getResponse.Content.ReadFromJsonAsync<Result<OnboardingResponse>>(JsonOptions);
+
+        getResult!.Value!.FundRaiserProfile.Should().NotBeNull();
+        getResult.Value.FundRaiserProfile!.Company.Should().NotBeNull();
+        getResult.Value.FundRaiserProfile.Company!.CompanyLegalName.Should().Be("Acme Fundraise Limited");
+        getResult.Value.FundRaiserProfile.Company.TradingBrandName.Should().Be("Acme Raise");
+        getResult.Value.FundRaiserProfile.Company.CompanyPhone.Should().Be("+2348012345678");
+    }
+
+    [Fact]
+    public async Task Put_FundRaiserKycStep_WithRepresentativeAndBusinessDocuments_SavesAndHydratesOnGet()
+    {
+        var user = SeedUser(email: "fundraiser-kyc@example.com", userType: UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        var onboarding = new UserOnboarding
+        {
+            UserId = user.Id,
+            FlowType = OnboardingFlowType.Startup,
+            CurrentStep = OnboardingStep.Kyc,
+            Status = OnboardingStatus.Draft
+        };
+        _context.UserOnboardings.Add(onboarding);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(userId: user.Id);
+
+        var request = new SaveOnboardingRequest(
+            Step: OnboardingStep.Kyc,
+            InvestorCategoryPayload: null,
+            InvestmentProfilePayload: null,
+            KycPayload: new KycPayload(
+                KycIdType.NationalIdCard,
+                "12345678901",
+                "21234567890",
+                "gov-id.png",
+                "proof-of-address.png",
+                "selfie.png",
+                null,
+                null
+            ),
+            FundRaiserBusinessDocumentsPayload: new FundRaiserBusinessDocumentsPayload(
+                FounderAndTeamIntroductionDocumentPathOrKey: "founders.png",
+                FundraisingDeckDocumentPathOrKey: "deck.png",
+                InvestmentMemoDocumentPathOrKey: "memo.png",
+                TermsOfOfferingDocumentPathOrKey: "terms.png",
+                ProductDemoDocumentPathOrKey: "demo.png",
+                BusinessDescription: "Business overview",
+                BusinessSector: "Technology",
+                InstrumentType: "Equity Investment Contracts",
+                BusinessSize: "Micro",
+                FundingTarget: 10_000_000m,
+                InvestmentRound: "Pre-Seed Round"
+            ),
+            FundRaiserRepresentativePayload: new FundRaiserRepresentativePayload(
+                RepresentativeFullName: "John Doe",
+                RepresentativeJobTitle: "Director",
+                RepresentativePhoneNumber: "+2348011111111",
+                RepresentativeDateOfBirth: new DateTime(1990, 1, 1),
+                RepresentativeEmail: "john@example.com",
+                RepresentativeNationality: "Nigerian",
+                RepresentativeCountryOfResidence: "Nigeria",
+                RepresentativeAddress: "Lekki, Lagos"
+            )
+        );
+
+        var putResponse = await authClient.PutAsJsonAsync("/api/onboarding", request, JsonOptions);
+        putResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResponse = await authClient.GetAsync("/api/onboarding");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var getResult = await getResponse.Content.ReadFromJsonAsync<Result<OnboardingResponse>>(JsonOptions);
+
+        getResult!.Value!.FundRaiserProfile.Should().NotBeNull();
+        getResult.Value.FundRaiserProfile!.Representative!.RepresentativeFullName.Should().Be("John Doe");
+        getResult.Value.FundRaiserProfile.BusinessDocuments!.FundraisingDeckDocumentPathOrKey.Should().Be("deck.png");
+        getResult.Value.FundRaiserProfile.BusinessDocuments.FundingTarget.Should().Be(10_000_000m);
+        getResult.Value.Kyc!.GovernmentIdDocumentPathOrKey.Should().Be("gov-id.png");
+        getResult.Value.Kyc.ProofOfAddressDocumentPathOrKey.Should().Be("proof-of-address.png");
+    }
+
+    [Fact]
     public async Task Put_CorporateOciDocumentsInKycStep_SavesAndHydratesOnGet()
     {
         var user = SeedUser(email: "corp-oci-docs@example.com", userType: UserTypeEnum.CorporateInvestor);
@@ -310,6 +434,167 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
 
         var response = await authClient.PostAsync("/api/onboarding/submit", null);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Put_FundRaiserReviewStep_WithPaymentPayload_SavesAndHydratesOnGet()
+    {
+        var user = SeedUser(email: "fundraiser-payment@example.com", userType: UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        _context.UserOnboardings.Add(new UserOnboarding
+        {
+            UserId = user.Id,
+            FlowType = OnboardingFlowType.Startup,
+            CurrentStep = OnboardingStep.Review,
+            Status = OnboardingStatus.Draft
+        });
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(userId: user.Id);
+        var request = new SaveOnboardingRequest(
+            Step: OnboardingStep.Review,
+            InvestorCategoryPayload: null,
+            InvestmentProfilePayload: null,
+            KycPayload: null,
+            FundRaiserPaymentPayload: new FundRaiserPaymentPayload(
+                PaymentMethod: "Bank Transfer",
+                PaymentReference: "PAY-001",
+                PaymentStatus: "Paid",
+                ApplicationFeePaid: true
+            )
+        );
+
+        var response = await authClient.PutAsJsonAsync("/api/onboarding", request, JsonOptions);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResponse = await authClient.GetAsync("/api/onboarding");
+        var getResult = await getResponse.Content.ReadFromJsonAsync<Result<OnboardingResponse>>(JsonOptions);
+        getResult!.Value!.FundRaiserProfile!.Payment!.PaymentMethod.Should().Be("Bank Transfer");
+        getResult.Value.FundRaiserProfile.Payment.PaymentReference.Should().Be("PAY-001");
+        getResult.Value.FundRaiserProfile.Payment.ApplicationFeePaid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Post_Submit_FundRaiserWithoutPayment_Returns400()
+    {
+        var user = SeedUser(email: "fundraiser-submit-missing-payment@example.com", userType: UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        _context.UserInvestmentProfiles.Add(new UserInvestmentProfile
+        {
+            UserId = user.Id,
+            CompanyLegalName = "Acme",
+            TradingBrandName = "Acme",
+            RegistrationType = "LTD",
+            RegistrationNumber = "RC123",
+            CompanyLoginEmail = "ops@acme.com",
+            DateOfRegistration = new DateTime(2020, 1, 1),
+            BusinessAddress = "Address",
+            RegisteredAddress = "Address",
+            CompanyEmail = "info@acme.com",
+            CompanyPhone = "+234",
+            RepresentativeFullName = "Rep",
+            RepresentativeJobTitle = "Director",
+            RepresentativePhoneNumber = "+234",
+            RepresentativeDateOfBirth = new DateTime(1990, 1, 1),
+            RepresentativeEmail = "rep@acme.com",
+            RepresentativeNationality = "Nigerian",
+            RepresentativeCountryOfResidence = "Nigeria",
+            RepresentativeAddress = "Address",
+            FounderAndTeamIntroductionDocumentPathOrKey = "founders.png",
+            FundraisingDeckDocumentPathOrKey = "deck.png",
+            InvestmentMemoDocumentPathOrKey = "memo.png",
+            TermsOfOfferingDocumentPathOrKey = "terms.png",
+            BusinessDescription = "Business",
+            BusinessSector = "Technology",
+            InstrumentType = "Equity",
+            BusinessSize = "Micro",
+            FundingTarget = 100000m,
+            InvestmentRound = "Pre-Seed"
+        });
+        _context.UserKycs.Add(new UserKyc
+        {
+            UserId = user.Id,
+            IdType = KycIdType.NationalIdCard,
+            GovernmentIdDocumentPathOrKey = "gov.png",
+            ProofOfAddressDocumentPathOrKey = "proof.png"
+        });
+        _context.UserOnboardings.Add(new UserOnboarding
+        {
+            UserId = user.Id,
+            FlowType = OnboardingFlowType.Startup,
+            CurrentStep = OnboardingStep.Review,
+            Status = OnboardingStatus.Draft
+        });
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(userId: user.Id);
+        var response = await authClient.PostAsync("/api/onboarding/submit", null);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Post_Submit_FundRaiserComplete_Returns200()
+    {
+        var user = SeedUser(email: "fundraiser-submit-complete@example.com", userType: UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        _context.UserInvestmentProfiles.Add(new UserInvestmentProfile
+        {
+            UserId = user.Id,
+            CompanyLegalName = "Acme",
+            TradingBrandName = "Acme",
+            RegistrationType = "LTD",
+            RegistrationNumber = "RC123",
+            CompanyLoginEmail = "ops@acme.com",
+            DateOfRegistration = new DateTime(2020, 1, 1),
+            BusinessAddress = "Address",
+            RegisteredAddress = "Address",
+            CompanyEmail = "info@acme.com",
+            CompanyPhone = "+234",
+            RepresentativeFullName = "Rep",
+            RepresentativeJobTitle = "Director",
+            RepresentativePhoneNumber = "+234",
+            RepresentativeDateOfBirth = new DateTime(1990, 1, 1),
+            RepresentativeEmail = "rep@acme.com",
+            RepresentativeNationality = "Nigerian",
+            RepresentativeCountryOfResidence = "Nigeria",
+            RepresentativeAddress = "Address",
+            FounderAndTeamIntroductionDocumentPathOrKey = "founders.png",
+            FundraisingDeckDocumentPathOrKey = "deck.png",
+            InvestmentMemoDocumentPathOrKey = "memo.png",
+            TermsOfOfferingDocumentPathOrKey = "terms.png",
+            BusinessDescription = "Business",
+            BusinessSector = "Technology",
+            InstrumentType = "Equity",
+            BusinessSize = "Micro",
+            FundingTarget = 100000m,
+            InvestmentRound = "Pre-Seed",
+            FundRaiserPaymentMethod = "Bank Transfer",
+            FundRaiserPaymentReference = "PAY-100",
+            FundRaiserPaymentStatus = "Paid",
+            FundRaiserApplicationFeePaid = true
+        });
+        _context.UserKycs.Add(new UserKyc
+        {
+            UserId = user.Id,
+            IdType = KycIdType.NationalIdCard,
+            GovernmentIdDocumentPathOrKey = "gov.png",
+            ProofOfAddressDocumentPathOrKey = "proof.png"
+        });
+        _context.UserOnboardings.Add(new UserOnboarding
+        {
+            UserId = user.Id,
+            FlowType = OnboardingFlowType.Startup,
+            CurrentStep = OnboardingStep.Review,
+            Status = OnboardingStatus.Draft
+        });
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(userId: user.Id);
+        var response = await authClient.PostAsync("/api/onboarding/submit", null);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

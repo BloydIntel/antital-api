@@ -151,7 +151,8 @@ public class SaveOnboardingCommandHandlerTests
     {
         var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.Kyc, Status = OnboardingStatus.Draft };
         _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
-        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserKyc?)null);
+        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserKyc?)null);
 
         var cmd = new SaveOnboardingCommand(
             OnboardingStep.Kyc,
@@ -251,6 +252,74 @@ public class SaveOnboardingCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_InvestorCategoryStep_WithFundRaiserCompanyInfo_UpdatesProfile_WithoutAdvancingStep()
+    {
+        var fundRaiserUser = new User
+        {
+            Id = 1,
+            Email = "fundraiser@test.com",
+            IsEmailVerified = true,
+            FirstName = "Fund",
+            LastName = "Raiser",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.FundRaiser
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, fundRaiserUser));
+
+        var existingOnboarding = new UserOnboarding
+        {
+            UserId = 1,
+            CurrentStep = OnboardingStep.InvestorCategory,
+            Status = OnboardingStatus.Draft
+        };
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserInvestmentProfile?)null);
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestorCategory,
+            null,
+            null,
+            null,
+            FundRaiserCompanyPayload: new FundRaiserCompanyPayload(
+                CompanyLegalName: "Acme Fundraise Limited",
+                TradingBrandName: "Acme Raise",
+                RegistrationType: "LTD",
+                RegistrationNumber: "RC123456",
+                CompanyLoginEmail: "ops@acmefundraise.com",
+                DateOfRegistration: new DateTime(2020, 1, 15),
+                CompanyWebsite: "https://acmefundraise.com",
+                BusinessAddress: "23A Unity Crescent Lekki",
+                RegisteredAddress: "23A Unity Crescent Lekki",
+                CompanyEmail: "info@acmefundraise.com",
+                CompanyPhone: "+2348012345678"
+            )
+        );
+
+        var result = await _handler.Handle(cmd, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _profileRepoMock.Verify(x => x.AddAsync(It.Is<UserInvestmentProfile>(p =>
+            p.CompanyLegalName == "Acme Fundraise Limited" &&
+            p.TradingBrandName == "Acme Raise" &&
+            p.RegistrationType == "LTD" &&
+            p.RegistrationNumber == "RC123456" &&
+            p.CompanyLoginEmail == "ops@acmefundraise.com" &&
+            p.DateOfRegistration == new DateTime(2020, 1, 15) &&
+            p.CompanyWebsite == "https://acmefundraise.com" &&
+            p.BusinessAddress == "23A Unity Crescent Lekki" &&
+            p.RegisteredAddress == "23A Unity Crescent Lekki" &&
+            p.CompanyEmail == "info@acmefundraise.com" &&
+            p.CompanyPhone == "+2348012345678"), It.IsAny<CancellationToken>()), Times.Once);
+        _onboardingRepoMock.Verify(x => x.UpdateAsync(It.Is<UserOnboarding>(e => e.CurrentStep == OnboardingStep.InvestorCategory), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Handle_InvestmentProfileStep_WithCorporateQiiPayload_UpdatesCorporateProfile()
     {
         var corporateUser = new User
@@ -344,5 +413,217 @@ public class SaveOnboardingCommandHandlerTests
             k.IncorporationCertificateDocumentPathOrKey == "inc-path" &&
             k.RecentStatusReportDocumentPathOrKey == "status-path" &&
             k.BoardResolutionDocumentPathOrKey == "board-path"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_KycStep_WithKycAndCorporateQiiDocs_UpdatesBoth()
+    {
+        var corporateUser = new User
+        {
+            Id = 1,
+            Email = "corp@test.com",
+            IsEmailVerified = true,
+            FirstName = "Corp",
+            LastName = "User",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.CorporateInvestor
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, corporateUser));
+
+        var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.Kyc, Status = OnboardingStatus.Draft };
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserKyc?)null);
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", "gov-id", "proof", "selfie", "income", "Payslip"),
+            CorporateQiiDocumentsPayload: new CorporateQiiDocumentsPayload(
+                "qii-status-path",
+                "qii-license-path",
+                "qii-board-path"
+            )
+        );
+
+        var result = await _handler.Handle(cmd, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _kycRepoMock.Verify(x => x.AddAsync(It.Is<UserKyc>(k =>
+            k.Nin == "12345678901" &&
+            k.Bvn == "21234567890" &&
+            k.GovernmentIdDocumentPathOrKey == "gov-id" &&
+            k.ProofOfAddressDocumentPathOrKey == "proof" &&
+            k.SelfieVerificationPathOrKey == "selfie" &&
+            k.IncomeVerificationPathOrKey == "income" &&
+            k.RecentStatusReportDocumentPathOrKey == "qii-status-path" &&
+            k.QiiLicenseEvidenceDocumentPathOrKey == "qii-license-path" &&
+            k.BoardResolutionDocumentPathOrKey == "qii-board-path"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_KycStep_WithCorporateDocs_ForIndividualUser_ThrowsBadRequest()
+    {
+        var individualUser = new User
+        {
+            Id = 1,
+            Email = "ind@test.com",
+            IsEmailVerified = true,
+            FirstName = "Ind",
+            LastName = "User",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.IndividualInvestor
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, individualUser));
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", "gov-id", "proof", "selfie", "income", "Payslip"),
+            CorporateQiiDocumentsPayload: new CorporateQiiDocumentsPayload(
+                "qii-status-path",
+                "qii-license-path",
+                "qii-board-path"
+            )
+        );
+
+        await _handler.Invoking(h => h.Handle(cmd, CancellationToken.None))
+            .Should().ThrowAsync<BadRequestException>();
+
+        _onboardingRepoMock.Verify(x => x.GetOrCreateForUserAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _kycRepoMock.Verify(x => x.AddAsync(It.IsAny<UserKyc>(), It.IsAny<CancellationToken>()), Times.Never);
+        _kycRepoMock.Verify(x => x.UpdateAsync(It.IsAny<UserKyc>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_KycStep_WithFundRaiserDocsAndRepresentative_UpdatesProfileAndKyc()
+    {
+        var fundRaiserUser = new User
+        {
+            Id = 1,
+            Email = "fundraiser@test.com",
+            IsEmailVerified = true,
+            FirstName = "Fund",
+            LastName = "Raiser",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.FundRaiser
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, fundRaiserUser));
+
+        var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.Kyc, Status = OnboardingStatus.Draft };
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserInvestmentProfile?)null);
+        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserKyc?)null);
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", "gov-id.png", "proof.png", "selfie.png", null, null),
+            FundRaiserBusinessDocumentsPayload: new FundRaiserBusinessDocumentsPayload(
+                "founders.png",
+                "deck.png",
+                "memo.png",
+                "terms.png",
+                "demo.png",
+                "Business overview",
+                "Technology",
+                "Equity Investment Contracts",
+                "Micro",
+                10_000_000m,
+                "Pre-Seed Round"
+            ),
+            FundRaiserRepresentativePayload: new FundRaiserRepresentativePayload(
+                "John Doe",
+                "Director",
+                "+2348011111111",
+                new DateTime(1990, 1, 1),
+                "john@example.com",
+                "Nigerian",
+                "Nigeria",
+                "Lekki, Lagos"
+            )
+        );
+
+        var result = await _handler.Handle(cmd, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _profileRepoMock.Verify(x => x.AddAsync(It.Is<UserInvestmentProfile>(p =>
+            p.RepresentativeFullName == "John Doe" &&
+            p.FounderAndTeamIntroductionDocumentPathOrKey == "founders.png" &&
+            p.FundingTarget == 10_000_000m &&
+            p.InvestmentRound == "Pre-Seed Round"), It.IsAny<CancellationToken>()), Times.Once);
+        _kycRepoMock.Verify(x => x.AddAsync(It.Is<UserKyc>(k =>
+            k.Nin == "12345678901" &&
+            k.GovernmentIdDocumentPathOrKey == "gov-id.png" &&
+            k.ProofOfAddressDocumentPathOrKey == "proof.png"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ReviewStep_WithFundRaiserPayment_UpdatesProfile()
+    {
+        var fundRaiserUser = new User
+        {
+            Id = 1,
+            Email = "fundraiser@test.com",
+            IsEmailVerified = true,
+            FirstName = "Fund",
+            LastName = "Raiser",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.FundRaiser
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, fundRaiserUser));
+
+        var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.Review, Status = OnboardingStatus.Draft };
+        var existingProfile = new UserInvestmentProfile { UserId = 1 };
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingProfile);
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Review,
+            null,
+            null,
+            null,
+            FundRaiserPaymentPayload: new FundRaiserPaymentPayload(
+                PaymentMethod: "Bank Transfer",
+                PaymentReference: "PAY-001",
+                PaymentStatus: "Paid",
+                ApplicationFeePaid: true
+            )
+        );
+
+        var result = await _handler.Handle(cmd, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _profileRepoMock.Verify(x => x.UpdateAsync(It.Is<UserInvestmentProfile>(p =>
+            p.FundRaiserPaymentMethod == "Bank Transfer" &&
+            p.FundRaiserPaymentReference == "PAY-001" &&
+            p.FundRaiserPaymentStatus == "Paid" &&
+            p.FundRaiserApplicationFeePaid == true), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

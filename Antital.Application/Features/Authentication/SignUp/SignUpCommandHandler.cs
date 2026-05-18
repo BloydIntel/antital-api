@@ -13,6 +13,7 @@ namespace Antital.Application.Features.Authentication.SignUp;
 
 public class SignUpCommandHandler(
     IUserRepository userRepository,
+    IUserInvestmentProfileRepository userInvestmentProfileRepository,
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
     IEmailService emailService,
@@ -47,24 +48,27 @@ public class SignUpCommandHandler(
         var refreshTokenHash = TokenGenerator.HashToken(refreshToken);
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenDays);
 
+        var userType = MapUserType(request.UserType);
+        var isFundRaiser = userType == UserTypeEnum.FundRaiser;
+
         // 5. Create User entity
         var user = new User
         {
             Email = request.Email,
             PasswordHash = passwordHash,
-            UserType = UserTypeEnum.IndividualInvestor, // Starting with IndividualInvestor as per requirements
+            UserType = userType,
             IsEmailVerified = false,
             EmailVerificationToken = verificationToken,
             EmailVerificationTokenExpiry = tokenExpiry,
             FirstName = request.FirstName,
             LastName = request.LastName,
             PreferredName = request.PreferredName,
-            PhoneNumber = request.PhoneNumber,
-            DateOfBirth = request.DateOfBirth,
-            Nationality = request.Nationality,
-            CountryOfResidence = request.CountryOfResidence,
-            StateOfResidence = request.StateOfResidence,
-            ResidentialAddress = request.ResidentialAddress,
+            PhoneNumber = request.PhoneNumber ?? string.Empty,
+            DateOfBirth = request.DateOfBirth ?? (isFundRaiser ? DateTime.MinValue : throw new BadRequestException("Invalid personal information.", new Dictionary<string, string[]> { { "DateOfBirth", ["Date of birth is required."] } })),
+            Nationality = request.Nationality ?? string.Empty,
+            CountryOfResidence = request.CountryOfResidence ?? string.Empty,
+            StateOfResidence = request.StateOfResidence ?? string.Empty,
+            ResidentialAddress = request.ResidentialAddress ?? string.Empty,
             HasAgreedToTerms = request.HasAgreedToTerms,
             RefreshTokenHash = refreshTokenHash,
             RefreshTokenExpiresAt = refreshTokenExpiry
@@ -78,6 +82,39 @@ public class SignUpCommandHandler(
 
         // 6. Save to database via UnitOfWork
         await userRepository.AddAsync(user, cancellationToken);
+
+        if (userType == UserTypeEnum.CorporateInvestor || userType == UserTypeEnum.FundRaiser)
+        {
+            var investorCategory = userType == UserTypeEnum.CorporateInvestor
+                ? MapCorporateInvestorCategory(request.CorporateInvestorCategory)
+                : InvestorCategory.OtherCorporateInvestor;
+            var profile = new UserInvestmentProfile
+            {
+                User = user,
+                InvestorCategory = investorCategory,
+                CompanyLegalName = request.CompanyLegalName,
+                TradingBrandName = request.TradingBrandName,
+                RegistrationType = request.RegistrationType,
+                RegistrationNumber = request.RegistrationNumber,
+                CompanyLoginEmail = request.CompanyLoginEmail,
+                DateOfRegistration = request.DateOfRegistration,
+                CompanyWebsite = request.CompanyWebsite,
+                BusinessAddress = request.BusinessAddress,
+                RegisteredAddress = request.RegisteredAddress,
+                CompanyEmail = request.CompanyEmail,
+                CompanyPhone = request.CompanyPhone,
+                RepresentativeFullName = request.RepresentativeFullName,
+                RepresentativeJobTitle = request.RepresentativeJobTitle,
+                RepresentativePhoneNumber = request.RepresentativePhoneNumber,
+                RepresentativeDateOfBirth = request.RepresentativeDateOfBirth,
+                RepresentativeEmail = request.RepresentativeEmail,
+                RepresentativeNationality = request.RepresentativeNationality,
+                RepresentativeCountryOfResidence = request.RepresentativeCountryOfResidence,
+                RepresentativeAddress = request.RepresentativeAddress
+            };
+            await userInvestmentProfileRepository.AddAsync(profile, cancellationToken);
+        }
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         // 7. Send verification email via IEmailService
@@ -101,6 +138,51 @@ public class SignUpCommandHandler(
         result.AddValue(response);
         result.OK();
         return result;
+    }
+
+    private static UserTypeEnum MapUserType(string userType)
+    {
+        if (userType.Equals("IndividualInvestor", StringComparison.OrdinalIgnoreCase))
+            return UserTypeEnum.IndividualInvestor;
+
+        if (userType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase))
+            return UserTypeEnum.CorporateInvestor;
+
+        if (userType.Equals("Fundraiser", StringComparison.OrdinalIgnoreCase))
+            return UserTypeEnum.FundRaiser;
+
+        throw new BadRequestException(
+            "Invalid user type.",
+            new Dictionary<string, string[]>
+            {
+                { "UserType", ["User type must be IndividualInvestor, CorporateInvestor, or Fundraiser."] }
+            });
+    }
+
+    private static InvestorCategory MapCorporateInvestorCategory(string? category)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            throw new BadRequestException(
+                "Invalid corporate investor category.",
+                new Dictionary<string, string[]>
+                {
+                    { "CorporateInvestorCategory", ["Corporate investor category is required for CorporateInvestor signup."] }
+                });
+        }
+
+        if (category.Equals("QualifiedInstitutionalInvestor", StringComparison.OrdinalIgnoreCase))
+            return InvestorCategory.QualifiedInstitutionalInvestor;
+
+        if (category.Equals("OtherCorporateInvestor", StringComparison.OrdinalIgnoreCase))
+            return InvestorCategory.OtherCorporateInvestor;
+
+        throw new BadRequestException(
+            "Invalid corporate investor category.",
+            new Dictionary<string, string[]>
+            {
+                { "CorporateInvestorCategory", ["Corporate investor category must be QualifiedInstitutionalInvestor or OtherCorporateInvestor."] }
+            });
     }
 
 }

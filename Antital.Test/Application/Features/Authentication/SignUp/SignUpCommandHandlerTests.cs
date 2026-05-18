@@ -15,6 +15,7 @@ namespace Antital.Test.Application.Features.Authentication.SignUp;
 public class SignUpCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<IUserInvestmentProfileRepository> _userInvestmentProfileRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<IEmailService> _emailServiceMock;
@@ -26,6 +27,7 @@ public class SignUpCommandHandlerTests
     public SignUpCommandHandlerTests()
     {
         _userRepositoryMock = new Mock<IUserRepository>();
+        _userInvestmentProfileRepositoryMock = new Mock<IUserInvestmentProfileRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _emailServiceMock = new Mock<IEmailService>();
@@ -41,6 +43,7 @@ public class SignUpCommandHandlerTests
 
         _handler = new SignUpCommandHandler(
             _userRepositoryMock.Object,
+            _userInvestmentProfileRepositoryMock.Object,
             _passwordHasherMock.Object,
             _jwtTokenServiceMock.Object,
             _emailServiceMock.Object,
@@ -368,5 +371,223 @@ public class SignUpCommandHandlerTests
         capturedUser.Should().NotBeNull();
         capturedUser!.IsEmailVerified.Should().BeFalse();
         result.Value!.IsEmailVerified.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_CorporateInvestor_CreatesCorporateInvestmentProfile()
+    {
+        var command = new SignUpCommand(
+            FirstName: "Jane",
+            LastName: "Corp",
+            Email: "jane.corp@example.com",
+            PreferredName: "JC",
+            PhoneNumber: "+2348000000000",
+            DateOfBirth: new DateTime(1992, 2, 2),
+            Nationality: "Nigerian",
+            CountryOfResidence: "Nigeria",
+            StateOfResidence: "Lagos",
+            ResidentialAddress: "1 Corporate Road, Lagos",
+            Password: "SecurePass123!",
+            ConfirmPassword: "SecurePass123!",
+            HasAgreedToTerms: true,
+            UserType: "CorporateInvestor",
+            CorporateInvestorCategory: "QualifiedInstitutionalInvestor",
+            CompanyLegalName: "Acme Ventures Ltd",
+            TradingBrandName: "Acme Ventures",
+            RegistrationType: "LTD",
+            RegistrationNumber: "RC12345",
+            CompanyLoginEmail: "ops@acme.com",
+            DateOfRegistration: new DateTime(2020, 1, 15),
+            CompanyWebsite: "https://acme.com",
+            BusinessAddress: "23A Unity Crescent, Lekki",
+            RegisteredAddress: "23A Unity Crescent, Lekki",
+            CompanyEmail: "info@acme.com",
+            CompanyPhone: "+2348012345678",
+            RepresentativeFullName: "Jane Corp",
+            RepresentativeJobTitle: "Director",
+            RepresentativePhoneNumber: "+2348098765432",
+            RepresentativeDateOfBirth: new DateTime(1990, 5, 10),
+            RepresentativeEmail: "jane.rep@acme.com",
+            RepresentativeNationality: "Nigerian",
+            RepresentativeCountryOfResidence: "Nigeria",
+            RepresentativeAddress: "Lekki, Lagos"
+        );
+
+        User? capturedUser = null;
+        UserInvestmentProfile? capturedProfile = null;
+
+        _userRepositoryMock.Setup(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _passwordHasherMock.Setup(x => x.HashPassword(command.Password)).Returns("hashed_password");
+        _userRepositoryMock.Setup(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) =>
+            {
+                capturedUser = u;
+                capturedUser.Id = 77;
+            });
+        _userInvestmentProfileRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()))
+            .Callback<UserInvestmentProfile, CancellationToken>((p, _) => capturedProfile = p);
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _jwtTokenServiceMock.Setup(x => x.GenerateToken(It.IsAny<User>())).Returns("jwt_token");
+        _currentUserMock.Setup(x => x.IPAddress).Returns("127.0.0.1");
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        capturedUser.Should().NotBeNull();
+        capturedUser!.UserType.Should().Be(UserTypeEnum.CorporateInvestor);
+        _userInvestmentProfileRepositoryMock.Verify(x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        capturedProfile.Should().NotBeNull();
+        capturedProfile!.User.Should().BeSameAs(capturedUser);
+        capturedProfile.InvestorCategory.Should().Be(InvestorCategory.QualifiedInstitutionalInvestor);
+        capturedProfile.CompanyLegalName.Should().Be("Acme Ventures Ltd");
+        capturedProfile.RegistrationNumber.Should().Be("RC12345");
+        capturedProfile.CompanyWebsite.Should().Be("https://acme.com");
+        capturedProfile.RepresentativeFullName.Should().Be("Jane Corp");
+    }
+
+    [Fact]
+    public async Task Handle_CorporateInvestor_WithOciCategory_SetsOciInvestorCategory()
+    {
+        var command = new SignUpCommand(
+            FirstName: "Jane",
+            LastName: "Corp",
+            Email: "jane.oci@example.com",
+            PreferredName: "JC",
+            PhoneNumber: "+2348000000000",
+            DateOfBirth: new DateTime(1992, 2, 2),
+            Nationality: "Nigerian",
+            CountryOfResidence: "Nigeria",
+            StateOfResidence: "Lagos",
+            ResidentialAddress: "1 Corporate Road, Lagos",
+            Password: "SecurePass123!",
+            ConfirmPassword: "SecurePass123!",
+            HasAgreedToTerms: true,
+            UserType: "CorporateInvestor",
+            CorporateInvestorCategory: "OtherCorporateInvestor",
+            CompanyLegalName: "OCI Ventures Ltd"
+        );
+
+        UserInvestmentProfile? capturedProfile = null;
+        _userRepositoryMock.Setup(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _passwordHasherMock.Setup(x => x.HashPassword(command.Password)).Returns("hashed_password");
+        _userRepositoryMock.Setup(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) => u.Id = 88);
+        _userInvestmentProfileRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()))
+            .Callback<UserInvestmentProfile, CancellationToken>((p, _) => capturedProfile = p);
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _jwtTokenServiceMock.Setup(x => x.GenerateToken(It.IsAny<User>())).Returns("jwt_token");
+        _currentUserMock.Setup(x => x.IPAddress).Returns("127.0.0.1");
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        capturedProfile.Should().NotBeNull();
+        capturedProfile!.InvestorCategory.Should().Be(InvestorCategory.OtherCorporateInvestor);
+    }
+
+    [Fact]
+    public async Task Handle_FundraiserSignup_CreatesFundraiserInvestmentProfile()
+    {
+        var command = new SignUpCommand(
+            FirstName: "Ayo",
+            LastName: "Founder",
+            Email: "ayo.fundraiser@example.com",
+            PreferredName: "Ayo",
+            PhoneNumber: "+2348000000000",
+            DateOfBirth: new DateTime(1990, 1, 1),
+            Nationality: "Nigerian",
+            CountryOfResidence: "Nigeria",
+            StateOfResidence: "Lagos",
+            ResidentialAddress: "12 Startup Road, Lagos",
+            Password: "SecurePass123!",
+            ConfirmPassword: "SecurePass123!",
+            HasAgreedToTerms: true,
+            UserType: "Fundraiser",
+            CompanyLegalName: "Acme Fundraise Ltd",
+            TradingBrandName: "Acme Fund",
+            RegistrationType: "LTD",
+            RegistrationNumber: "RC776655",
+            CompanyLoginEmail: "ops@acmefund.com",
+            DateOfRegistration: new DateTime(2021, 3, 4),
+            CompanyWebsite: "https://acmefund.com",
+            BusinessAddress: "Lekki, Lagos",
+            RegisteredAddress: "Lekki, Lagos",
+            CompanyEmail: "hello@acmefund.com",
+            CompanyPhone: "+2348012345678",
+            RepresentativeFullName: "Ayo Founder",
+            RepresentativeJobTitle: "CEO",
+            RepresentativePhoneNumber: "+2348098765432",
+            RepresentativeDateOfBirth: new DateTime(1988, 9, 10),
+            RepresentativeEmail: "ayo@acmefund.com",
+            RepresentativeNationality: "Nigerian",
+            RepresentativeCountryOfResidence: "Nigeria",
+            RepresentativeAddress: "Lekki, Lagos"
+        );
+
+        User? capturedUser = null;
+        UserInvestmentProfile? capturedProfile = null;
+        _userRepositoryMock.Setup(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _passwordHasherMock.Setup(x => x.HashPassword(command.Password)).Returns("hashed_password");
+        _userRepositoryMock.Setup(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) =>
+            {
+                capturedUser = u;
+                capturedUser.Id = 22;
+            });
+        _userInvestmentProfileRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()))
+            .Callback<UserInvestmentProfile, CancellationToken>((p, _) => capturedProfile = p);
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _jwtTokenServiceMock.Setup(x => x.GenerateToken(It.IsAny<User>())).Returns("jwt_token");
+        _currentUserMock.Setup(x => x.IPAddress).Returns("127.0.0.1");
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        capturedUser.Should().NotBeNull();
+        capturedUser!.UserType.Should().Be(UserTypeEnum.FundRaiser);
+        _userInvestmentProfileRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        capturedProfile.Should().NotBeNull();
+        capturedProfile!.User.Should().BeSameAs(capturedUser);
+        capturedProfile.InvestorCategory.Should().Be(InvestorCategory.OtherCorporateInvestor);
+        capturedProfile.CompanyLegalName.Should().Be("Acme Fundraise Ltd");
+        capturedProfile.RegistrationNumber.Should().Be("RC776655");
+    }
+
+    [Fact]
+    public async Task Handle_IndividualSignup_DoesNotCreateInvestmentProfile()
+    {
+        var command = new SignUpCommand(
+            FirstName: "John",
+            LastName: "Doe",
+            Email: "john.individual@example.com",
+            PreferredName: "JD",
+            PhoneNumber: "+2348000000000",
+            DateOfBirth: new DateTime(1990, 1, 1),
+            Nationality: "Nigerian",
+            CountryOfResidence: "Nigeria",
+            StateOfResidence: "Lagos",
+            ResidentialAddress: "1 Main Street, Lagos",
+            Password: "SecurePass123!",
+            ConfirmPassword: "SecurePass123!",
+            HasAgreedToTerms: true,
+            UserType: "IndividualInvestor"
+        );
+
+        _userRepositoryMock.Setup(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _passwordHasherMock.Setup(x => x.HashPassword(command.Password)).Returns("hashed_password");
+        _userRepositoryMock.Setup(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) => u.Id = 11);
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _jwtTokenServiceMock.Setup(x => x.GenerateToken(It.IsAny<User>())).Returns("jwt_token");
+        _currentUserMock.Setup(x => x.IPAddress).Returns("127.0.0.1");
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        _userInvestmentProfileRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

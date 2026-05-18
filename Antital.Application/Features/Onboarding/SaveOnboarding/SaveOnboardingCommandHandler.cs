@@ -18,7 +18,9 @@ public class SaveOnboardingCommandHandler(
 {
     public async Task<Result> Handle(SaveOnboardingCommand request, CancellationToken cancellationToken)
     {
-        var (userId, _) = await userAccess.RequireVerifiedUserAsync(cancellationToken);
+        var (userId, user) = await userAccess.RequireVerifiedUserAsync(cancellationToken);
+        EnsureCorporateUserForCorporateDocumentPayloads(user, request);
+        EnsureFundRaiserUserForFundRaiserPayloads(user, request);
         var onboarding = await userOnboardingRepository.GetOrCreateForUserAsync(userId, cancellationToken);
 
         switch (request.Step)
@@ -34,6 +36,10 @@ public class SaveOnboardingCommandHandler(
                         request.CorporateAddressPayload,
                         request.CorporateRepresentativePayload,
                         cancellationToken);
+                }
+                else if (request.FundRaiserCompanyPayload != null)
+                {
+                    await SaveFundRaiserCompanyInfoAsync(userId, request.FundRaiserCompanyPayload, cancellationToken);
                 }
 
                 if (request.InvestorCategoryPayload != null)
@@ -58,17 +64,45 @@ public class SaveOnboardingCommandHandler(
                 onboarding.CurrentStep = OnboardingStep.Kyc;
                 break;
             case OnboardingStep.Kyc:
-                if (request.KycPayload != null)
+                if (request.FundRaiserBusinessDocumentsPayload != null || request.FundRaiserRepresentativePayload != null)
+                {
+                    await SaveFundRaiserKycStepDataAsync(
+                        userId,
+                        request.FundRaiserBusinessDocumentsPayload,
+                        request.FundRaiserRepresentativePayload,
+                        cancellationToken);
+
+                    if (request.KycPayload != null)
+                    {
+                        await SaveKycAsync(userId, request.KycPayload, cancellationToken);
+                    }
+                }
+                else if (request.KycPayload != null
+                    && (request.CorporateQiiDocumentsPayload != null || request.CorporateOciDocumentsPayload != null))
+                {
+                    await SaveKycAndCorporateDocumentsAsync(
+                        userId,
+                        request.KycPayload,
+                        request.CorporateQiiDocumentsPayload,
+                        request.CorporateOciDocumentsPayload,
+                        cancellationToken);
+                }
+                else if (request.KycPayload != null)
                 {
                     await SaveKycAsync(userId, request.KycPayload, cancellationToken);
                 }
-                else
+                else if (request.CorporateQiiDocumentsPayload != null || request.CorporateOciDocumentsPayload != null)
                 {
                     await SaveCorporateDocumentsAsync(userId, request.CorporateQiiDocumentsPayload, request.CorporateOciDocumentsPayload, cancellationToken);
                 }
                 onboarding.CurrentStep = OnboardingStep.Review;
                 break;
             case OnboardingStep.Review:
+                if (request.FundRaiserPaymentPayload != null)
+                {
+                    await SaveFundRaiserPaymentAsync(userId, request.FundRaiserPaymentPayload, cancellationToken);
+                }
+                break;
             case OnboardingStep.Submitted:
                 // No data to save; step already set
                 break;
@@ -82,6 +116,40 @@ public class SaveOnboardingCommandHandler(
         var result = new Result();
         result.OK();
         return result;
+    }
+
+    private static void EnsureFundRaiserUserForFundRaiserPayloads(User user, SaveOnboardingCommand request)
+    {
+        var hasFundRaiserPayload = request.FundRaiserCompanyPayload != null
+            || request.FundRaiserBusinessDocumentsPayload != null
+            || request.FundRaiserRepresentativePayload != null
+            || request.FundRaiserPaymentPayload != null;
+
+        if (hasFundRaiserPayload && user.UserType != UserTypeEnum.FundRaiser)
+        {
+            throw new BadRequestException(
+                "Fund raiser payloads are only allowed for FundRaiser users.",
+                new Dictionary<string, string[]>
+                {
+                    { "FundRaiserPayload", ["Fund raiser payloads require user type FundRaiser."] }
+                });
+        }
+    }
+
+    private static void EnsureCorporateUserForCorporateDocumentPayloads(User user, SaveOnboardingCommand request)
+    {
+        var hasCorporateDocumentPayload = request.CorporateQiiDocumentsPayload != null
+            || request.CorporateOciDocumentsPayload != null;
+
+        if (hasCorporateDocumentPayload && user.UserType != UserTypeEnum.CorporateInvestor)
+        {
+            throw new BadRequestException(
+                "Corporate document payloads are only allowed for CorporateInvestor users.",
+                new Dictionary<string, string[]>
+                {
+                    { "CorporateDocuments", ["Corporate document payloads require user type CorporateInvestor."] }
+                });
+        }
     }
 
     private async Task SaveInvestorCategoryAsync(int userId, InvestorCategoryPayload payload, CancellationToken cancellationToken)
@@ -105,6 +173,47 @@ public class SaveOnboardingCommandHandler(
         var isNew = profile == null;
         profile ??= new UserInvestmentProfile { UserId = userId };
         Apply(payload, profile);
+        if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
+        else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
+    }
+
+    private async Task SaveFundRaiserKycStepDataAsync(
+        int userId,
+        FundRaiserBusinessDocumentsPayload? businessDocumentsPayload,
+        FundRaiserRepresentativePayload? representativePayload,
+        CancellationToken cancellationToken)
+    {
+        var profile = await userInvestmentProfileRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = profile == null;
+        profile ??= new UserInvestmentProfile { UserId = userId };
+
+        if (representativePayload != null)
+        {
+            profile.RepresentativeFullName = representativePayload.RepresentativeFullName;
+            profile.RepresentativeJobTitle = representativePayload.RepresentativeJobTitle;
+            profile.RepresentativePhoneNumber = representativePayload.RepresentativePhoneNumber;
+            profile.RepresentativeDateOfBirth = representativePayload.RepresentativeDateOfBirth;
+            profile.RepresentativeEmail = representativePayload.RepresentativeEmail;
+            profile.RepresentativeNationality = representativePayload.RepresentativeNationality;
+            profile.RepresentativeCountryOfResidence = representativePayload.RepresentativeCountryOfResidence;
+            profile.RepresentativeAddress = representativePayload.RepresentativeAddress;
+        }
+
+        if (businessDocumentsPayload != null)
+        {
+            profile.FounderAndTeamIntroductionDocumentPathOrKey = businessDocumentsPayload.FounderAndTeamIntroductionDocumentPathOrKey;
+            profile.FundraisingDeckDocumentPathOrKey = businessDocumentsPayload.FundraisingDeckDocumentPathOrKey;
+            profile.InvestmentMemoDocumentPathOrKey = businessDocumentsPayload.InvestmentMemoDocumentPathOrKey;
+            profile.TermsOfOfferingDocumentPathOrKey = businessDocumentsPayload.TermsOfOfferingDocumentPathOrKey;
+            profile.ProductDemoDocumentPathOrKey = businessDocumentsPayload.ProductDemoDocumentPathOrKey;
+            profile.BusinessDescription = businessDocumentsPayload.BusinessDescription;
+            profile.BusinessSector = businessDocumentsPayload.BusinessSector;
+            profile.InstrumentType = businessDocumentsPayload.InstrumentType;
+            profile.BusinessSize = businessDocumentsPayload.BusinessSize;
+            profile.FundingTarget = businessDocumentsPayload.FundingTarget;
+            profile.InvestmentRound = businessDocumentsPayload.InvestmentRound;
+        }
+
         if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
         else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
     }
@@ -150,6 +259,49 @@ public class SaveOnboardingCommandHandler(
             profile.RepresentativeCountryOfResidence = representativePayload.RepresentativeCountryOfResidence;
             profile.RepresentativeAddress = representativePayload.RepresentativeAddress;
         }
+
+        if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
+        else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
+    }
+
+    private async Task SaveFundRaiserCompanyInfoAsync(
+        int userId,
+        FundRaiserCompanyPayload payload,
+        CancellationToken cancellationToken)
+    {
+        var profile = await userInvestmentProfileRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = profile == null;
+        profile ??= new UserInvestmentProfile { UserId = userId };
+
+        profile.CompanyLegalName = payload.CompanyLegalName;
+        profile.TradingBrandName = payload.TradingBrandName;
+        profile.RegistrationType = payload.RegistrationType;
+        profile.RegistrationNumber = payload.RegistrationNumber;
+        profile.CompanyLoginEmail = payload.CompanyLoginEmail;
+        profile.DateOfRegistration = payload.DateOfRegistration;
+        profile.CompanyWebsite = payload.CompanyWebsite;
+        profile.BusinessAddress = payload.BusinessAddress;
+        profile.RegisteredAddress = payload.RegisteredAddress;
+        profile.CompanyEmail = payload.CompanyEmail;
+        profile.CompanyPhone = payload.CompanyPhone;
+
+        if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
+        else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
+    }
+
+    private async Task SaveFundRaiserPaymentAsync(
+        int userId,
+        FundRaiserPaymentPayload payload,
+        CancellationToken cancellationToken)
+    {
+        var profile = await userInvestmentProfileRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = profile == null;
+        profile ??= new UserInvestmentProfile { UserId = userId };
+
+        profile.FundRaiserPaymentMethod = payload.PaymentMethod;
+        profile.FundRaiserPaymentReference = payload.PaymentReference;
+        profile.FundRaiserPaymentStatus = payload.PaymentStatus;
+        profile.FundRaiserApplicationFeePaid = payload.ApplicationFeePaid;
 
         if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
         else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
@@ -253,6 +405,50 @@ public class SaveOnboardingCommandHandler(
         kyc.ProofOfAddressVerifiedAt = result.ProofOfAddressVerifiedAt;
         kyc.SelfieVerifiedAt = result.SelfieVerifiedAt;
         kyc.IncomeVerifiedAt = result.IncomeVerifiedAt;
+    }
+
+    private async Task SaveKycAndCorporateDocumentsAsync(
+        int userId,
+        KycPayload kycPayload,
+        CorporateQiiDocumentsPayload? qiiPayload,
+        CorporateOciDocumentsPayload? ociPayload,
+        CancellationToken cancellationToken)
+    {
+        var input = new KycVerificationInput(
+            userId,
+            (int)kycPayload.IdType,
+            kycPayload.Nin,
+            kycPayload.Bvn,
+            kycPayload.GovernmentIdDocumentPathOrKey,
+            kycPayload.ProofOfAddressDocumentPathOrKey,
+            kycPayload.SelfieVerificationPathOrKey,
+            kycPayload.IncomeVerificationPathOrKey,
+            kycPayload.IncomeVerificationDocumentTypesCommaSeparated
+        );
+        var result = await kycVerificationService.ProcessAsync(input, cancellationToken);
+
+        var kyc = await userKycRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = kyc == null;
+        kyc ??= new UserKyc { UserId = userId };
+
+        Apply(kycPayload, result, kyc);
+
+        if (qiiPayload != null)
+        {
+            kyc.RecentStatusReportDocumentPathOrKey = qiiPayload.RecentStatusReportDocumentPathOrKey;
+            kyc.QiiLicenseEvidenceDocumentPathOrKey = qiiPayload.QiiLicenseEvidenceDocumentPathOrKey;
+            kyc.BoardResolutionDocumentPathOrKey = qiiPayload.BoardResolutionDocumentPathOrKey;
+        }
+
+        if (ociPayload != null)
+        {
+            kyc.IncorporationCertificateDocumentPathOrKey = ociPayload.IncorporationCertificateDocumentPathOrKey;
+            kyc.RecentStatusReportDocumentPathOrKey = ociPayload.RecentStatusReportDocumentPathOrKey;
+            kyc.BoardResolutionDocumentPathOrKey = ociPayload.BoardResolutionDocumentPathOrKey;
+        }
+
+        if (isNew) { await userKycRepository.AddAsync(kyc, cancellationToken); }
+        else { await userKycRepository.UpdateAsync(kyc, cancellationToken); }
     }
 
     private async Task SaveCorporateDocumentsAsync(

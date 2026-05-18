@@ -57,6 +57,33 @@ public class SaveOnboardingCommandValidatorTests
     }
 
     [Fact]
+    public void InvestorCategoryStep_WithFundRaiserCompanyPayload_Passes()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestorCategory,
+            null,
+            null,
+            null,
+            FundRaiserCompanyPayload: new FundRaiserCompanyPayload(
+                CompanyLegalName: "Acme Fundraise Ltd",
+                TradingBrandName: "Acme Raise",
+                RegistrationType: "LTD",
+                RegistrationNumber: "RC789456",
+                CompanyLoginEmail: "ops@acmeraise.com",
+                DateOfRegistration: new DateTime(2020, 1, 15),
+                CompanyWebsite: "https://acmeraise.com",
+                BusinessAddress: "123 Business Street",
+                RegisteredAddress: "123 Business Street",
+                CompanyEmail: "contact@acmeraise.com",
+                CompanyPhone: "+2348011111111"
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
     public void InvestmentProfileStep_WithoutPayload_Fails()
     {
         var cmd = new SaveOnboardingCommand(
@@ -139,6 +166,42 @@ public class SaveOnboardingCommandValidatorTests
     }
 
     [Fact]
+    public void InvestmentProfileStep_WithFundRaiserCompanyPayload_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.InvestmentProfile,
+            null,
+            new InvestmentProfilePayload(
+                InvestorCategory.Retail,
+                10m,
+                20m,
+                "N5m-N10m",
+                1_000_000m,
+                true, true, true, true, true,
+                null, null, null, null, null, null, null, null,
+                null, null, null, null, null
+            ),
+            null,
+            FundRaiserCompanyPayload: new FundRaiserCompanyPayload(
+                CompanyLegalName: "Acme Fundraise Ltd",
+                TradingBrandName: "Acme Raise",
+                RegistrationType: "LTD",
+                RegistrationNumber: "RC789456",
+                CompanyLoginEmail: "ops@acmeraise.com",
+                DateOfRegistration: new DateTime(2020, 1, 15),
+                CompanyWebsite: "https://acmeraise.com",
+                BusinessAddress: "123 Business Street",
+                RegisteredAddress: "123 Business Street",
+                CompanyEmail: "contact@acmeraise.com",
+                CompanyPhone: "+2348011111111"
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c);
+    }
+
+    [Fact]
     public void InvestmentProfileStep_WithValidPayload_Passes()
     {
         var cmd = new SaveOnboardingCommand(
@@ -174,7 +237,7 @@ public class SaveOnboardingCommandValidatorTests
     }
 
     [Fact]
-    public void KycStep_WithKycAndCorporateDocsTogether_Fails()
+    public void KycStep_WithKycAndCorporateDocsTogether_Passes()
     {
         var cmd = new SaveOnboardingCommand(
             OnboardingStep.Kyc,
@@ -188,7 +251,96 @@ public class SaveOnboardingCommandValidatorTests
             )
         );
         var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void KycStep_WithBothCorporateDocPayloads_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            null,
+            CorporateQiiDocumentsPayload: new CorporateQiiDocumentsPayload(
+                "qii-status.pdf",
+                "qii-license.pdf",
+                "qii-board.pdf"
+            ),
+            CorporateOciDocumentsPayload: new CorporateOciDocumentsPayload(
+                "oci-inc.pdf",
+                "oci-status.pdf",
+                "oci-board.pdf"
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
         result.ShouldHaveValidationErrorFor(c => c);
+    }
+
+    [Fact]
+    public void KycStep_WithFundRaiserDocumentsAndRepresentative_Passes()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", "gov-id.png", "address.png", "selfie.png", null, null),
+            FundRaiserBusinessDocumentsPayload: new FundRaiserBusinessDocumentsPayload(
+                "founders.png",
+                "deck.png",
+                "memo.png",
+                "terms.png",
+                null,
+                "Business overview",
+                "Technology",
+                "Equity Investment Contracts",
+                "Micro",
+                10_000_000m,
+                "Pre-Seed Round"
+            ),
+            FundRaiserRepresentativePayload: new FundRaiserRepresentativePayload(
+                "John Doe",
+                "Director",
+                "+2348011111111",
+                new DateTime(1990, 1, 1),
+                "john@example.com",
+                "Nigerian",
+                "Nigeria",
+                "Lekki, Lagos"
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void KycStep_WithFundRaiserDocumentsWithoutRepresentative_Passes()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            null,
+            FundRaiserBusinessDocumentsPayload: new FundRaiserBusinessDocumentsPayload(
+                "founders.png",
+                "deck.png",
+                "memo.png",
+                "terms.png",
+                null,
+                "Business overview",
+                "Technology",
+                "Equity Investment Contracts",
+                "Micro",
+                10_000_000m,
+                "Pre-Seed Round"
+            ),
+            FundRaiserRepresentativePayload: null
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
     }
 
     [Fact]
@@ -360,5 +512,53 @@ public class SaveOnboardingCommandValidatorTests
 
         var result = _validator.TestValidate(cmd);
         result.ShouldHaveValidationErrorFor(c => c.CorporateOciProfilePayload!.NetAssetValueRange);
+    }
+
+    [Fact]
+    public void ReviewStep_WithFundRaiserPaymentPayload_Passes()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Review,
+            null,
+            null,
+            null,
+            FundRaiserPaymentPayload: new FundRaiserPaymentPayload(
+                PaymentMethod: "Bank Transfer",
+                PaymentReference: "PAY-REF-001",
+                PaymentStatus: "Paid",
+                ApplicationFeePaid: true
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void ReviewStep_WithoutPayload_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(OnboardingStep.Review, null, null, null);
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c);
+    }
+
+    [Fact]
+    public void ReviewStep_WithApplicationFeeUnpaid_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Review,
+            null,
+            null,
+            null,
+            FundRaiserPaymentPayload: new FundRaiserPaymentPayload(
+                PaymentMethod: "Card",
+                PaymentReference: "PAY-REF-002",
+                PaymentStatus: "Pending",
+                ApplicationFeePaid: false
+            )
+        );
+
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.FundRaiserPaymentPayload!.ApplicationFeePaid);
     }
 }
