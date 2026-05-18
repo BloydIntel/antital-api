@@ -79,7 +79,7 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
 
         RuleFor(x => x)
             .Must(NotProvideCorporateFieldsForNonCorporateUserType)
-            .WithMessage("Corporate signup fields are only allowed when user type is CorporateInvestor.");
+            .WithMessage("Company signup fields are only allowed when user type is CorporateInvestor or Fundraiser.");
 
         RuleFor(x => x)
             .Must(HaveValidCorporateCategoryIfCorporateUserType)
@@ -127,7 +127,9 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
 
     private static bool NotProvideCorporateFieldsForNonCorporateUserType(SignUpCommand request)
     {
-        if (request.UserType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase))
+        if (request.UserType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase)
+            || request.UserType.Equals("Fundraiser", StringComparison.OrdinalIgnoreCase)
+            || request.UserType.Equals("FundRaiser", StringComparison.OrdinalIgnoreCase))
             return true;
 
         return string.IsNullOrWhiteSpace(request.CompanyLegalName)

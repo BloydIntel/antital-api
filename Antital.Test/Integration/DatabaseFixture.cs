@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Antital.Infrastructure;
 
 namespace Antital.Test.Integration;
@@ -15,8 +16,24 @@ public class DatabaseFixture : IDisposable
 
     public DatabaseFixture()
     {
-        _connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING") 
+        var configuredConnectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING")
             ?? "Host=localhost;Port=5432;Database=antitaldb_test;Username=crownedprinz;Password=";
+
+        // Use an isolated database per test run unless an explicit DB connection string is provided.
+        var useExplicitDb = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING"));
+        if (useExplicitDb)
+        {
+            _connectionString = configuredConnectionString;
+        }
+        else
+        {
+            var builder = new NpgsqlConnectionStringBuilder(configuredConnectionString)
+            {
+                Database = $"antitaldb_test_{Guid.NewGuid():N}"
+            };
+            _connectionString = builder.ConnectionString;
+            Environment.SetEnvironmentVariable("TEST_DB_CONNECTION_STRING", _connectionString);
+        }
         
         var options = new DbContextOptionsBuilder<AntitalDBContext>()
             .UseNpgsql(_connectionString, npgsqlOptions => 
@@ -65,7 +82,15 @@ public class DatabaseFixture : IDisposable
 
     public void Dispose()
     {
-        Cleanup();
+        try
+        {
+            _context.Database.EnsureDeleted();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error during database deletion: {ex.Message}");
+        }
+
         _context.Dispose();
     }
 }

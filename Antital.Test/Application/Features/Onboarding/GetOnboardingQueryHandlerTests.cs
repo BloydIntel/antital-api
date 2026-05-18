@@ -106,4 +106,69 @@ public class GetOnboardingQueryHandlerTests
         result.Value.InvestorProfile!.InvestorCategory.Should().Be(InvestorCategory.Retail);
         result.Value.InvestorProfile.AnnualIncomeRange.Should().Be("N5m-N10m");
     }
+
+    [Fact]
+    public async Task Handle_FundRaiserUser_WithProfile_ReturnsFundRaiserCompanyData()
+    {
+        var fundRaiserUser = new User
+        {
+            Id = 1,
+            Email = "u@test.com",
+            FirstName = "John",
+            LastName = "Doe",
+            PreferredName = "Johnny",
+            PhoneNumber = "+234",
+            DateOfBirth = new DateTime(1990, 1, 1),
+            Nationality = "Nigerian",
+            CountryOfResidence = "Nigeria",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "123 Main St",
+            IsEmailVerified = true,
+            PasswordHash = "x",
+            UserType = UserTypeEnum.FundRaiser
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((1, fundRaiserUser));
+
+        var onboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.InvestorCategory, Status = OnboardingStatus.Draft };
+        var profile = new UserInvestmentProfile
+        {
+            UserId = 1,
+            CompanyLegalName = "Acme Fundraise Ltd",
+            TradingBrandName = "Acme Raise",
+            RegistrationType = "LTD",
+            RegistrationNumber = "RC123456",
+            CompanyLoginEmail = "ops@acmefundraise.com",
+            DateOfRegistration = new DateTime(2020, 1, 15),
+            CompanyWebsite = "https://acmefundraise.com",
+            BusinessAddress = "23A Unity Crescent Lekki",
+            RegisteredAddress = "23A Unity Crescent Lekki",
+            CompanyEmail = "info@acmefundraise.com",
+            CompanyPhone = "+2348012345678",
+            RepresentativeFullName = "John Doe",
+            FounderAndTeamIntroductionDocumentPathOrKey = "founders.png",
+            FundingTarget = 10_000_000m,
+            FundRaiserPaymentMethod = "Bank Transfer",
+            FundRaiserPaymentReference = "PAY-001",
+            FundRaiserPaymentStatus = "Paid",
+            FundRaiserApplicationFeePaid = true
+        };
+        _onboardingRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(onboarding);
+        _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(profile);
+        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserKyc?)null);
+
+        var result = await _handler.Handle(new GetOnboardingQuery(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.FundRaiserProfile.Should().NotBeNull();
+        result.Value.FundRaiserProfile!.Company.Should().NotBeNull();
+        result.Value.FundRaiserProfile.Company!.CompanyLegalName.Should().Be("Acme Fundraise Ltd");
+        result.Value.FundRaiserProfile.Company.TradingBrandName.Should().Be("Acme Raise");
+        result.Value.FundRaiserProfile.Company.CompanyPhone.Should().Be("+2348012345678");
+        result.Value.FundRaiserProfile.Representative!.RepresentativeFullName.Should().Be("John Doe");
+        result.Value.FundRaiserProfile.BusinessDocuments!.FounderAndTeamIntroductionDocumentPathOrKey.Should().Be("founders.png");
+        result.Value.FundRaiserProfile.BusinessDocuments.FundingTarget.Should().Be(10_000_000m);
+        result.Value.FundRaiserProfile.Payment!.PaymentReference.Should().Be("PAY-001");
+        result.Value.FundRaiserProfile.Payment.ApplicationFeePaid.Should().BeTrue();
+    }
 }

@@ -82,13 +82,15 @@ public class SignUpCommandHandler(
         // 6. Save to database via UnitOfWork
         await userRepository.AddAsync(user, cancellationToken);
 
-        if (userType == UserTypeEnum.CorporateInvestor)
+        if (userType == UserTypeEnum.CorporateInvestor || userType == UserTypeEnum.FundRaiser)
         {
-            var corporateInvestorCategory = MapCorporateInvestorCategory(request.CorporateInvestorCategory);
+            var investorCategory = userType == UserTypeEnum.CorporateInvestor
+                ? MapCorporateInvestorCategory(request.CorporateInvestorCategory)
+                : InvestorCategory.OtherCorporateInvestor;
             var profile = new UserInvestmentProfile
             {
                 User = user,
-                InvestorCategory = corporateInvestorCategory,
+                InvestorCategory = investorCategory,
                 CompanyLegalName = request.CompanyLegalName,
                 TradingBrandName = request.TradingBrandName,
                 RegistrationType = request.RegistrationType,

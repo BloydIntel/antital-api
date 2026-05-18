@@ -42,6 +42,7 @@ public class GetOnboardingQueryHandler(
         var investorProfile = profile.ToDto();
         var kycDto = kyc.ToDto();
         var corporateProfile = user.UserType == UserTypeEnum.CorporateInvestor ? profile.ToCorporateDto() : null;
+        var fundRaiserProfile = user.UserType == UserTypeEnum.FundRaiser ? profile.ToFundRaiserDto() : null;
 
         var response = new OnboardingResponse(
             currentStep,
@@ -51,7 +52,8 @@ public class GetOnboardingQueryHandler(
             locationInfo,
             investorProfile,
             kycDto,
-            corporateProfile
+            corporateProfile,
+            fundRaiserProfile
         );
 
         var result = new Result<OnboardingResponse>();
