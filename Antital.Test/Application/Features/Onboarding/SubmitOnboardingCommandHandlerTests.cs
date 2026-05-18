@@ -5,6 +5,7 @@ using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
 using BuildingBlocks.Application.Exceptions;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
@@ -17,6 +18,8 @@ public class SubmitOnboardingCommandHandlerTests
     private readonly Mock<IUserOnboardingRepository> _onboardingRepoMock = new();
     private readonly Mock<IUserInvestmentProfileRepository> _profileRepoMock = new();
     private readonly Mock<IUserKycRepository> _kycRepoMock = new();
+    private readonly Mock<IEmailService> _emailServiceMock = new();
+    private readonly Mock<ILogger<SubmitOnboardingCommandHandler>> _loggerMock = new();
     private readonly SubmitOnboardingCommandHandler _handler;
 
     private static readonly User VerifiedUser = new()
@@ -60,10 +63,23 @@ public class SubmitOnboardingCommandHandlerTests
             _unitOfWorkMock.Object,
             _onboardingRepoMock.Object,
             _profileRepoMock.Object,
-            _kycRepoMock.Object
+            _kycRepoMock.Object,
+            _emailServiceMock.Object,
+            _loggerMock.Object
         );
         _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, VerifiedUser));
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+    }
+
+    private void SetupSuccessfulSubmit(User user, UserOnboarding onboarding, UserInvestmentProfile profile, UserKyc? kyc = null)
+    {
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((user.Id, user));
+        _onboardingRepoMock.Setup(x => x.GetByUserIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(onboarding);
+        _profileRepoMock.Setup(x => x.GetByUserIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(profile);
+        if (kyc != null)
+        {
+            _kycRepoMock.Setup(x => x.GetByUserIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(kyc);
+        }
     }
 
     [Fact]
@@ -104,6 +120,10 @@ public class SubmitOnboardingCommandHandlerTests
 
         await _handler.Invoking(h => h.Handle(new SubmitOnboardingCommand(), CancellationToken.None))
             .Should().ThrowAsync<BadRequestException>();
+
+        _emailServiceMock.Verify(
+            x => x.SendOnboardingSubmittedEmailAsync(It.IsAny<string>(), It.IsAny<UserTypeEnum>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -133,6 +153,46 @@ public class SubmitOnboardingCommandHandlerTests
             e.CurrentStep == OnboardingStep.Submitted &&
             e.SubmittedAt != null
         ), It.IsAny<CancellationToken>()), Times.Once);
+        _emailServiceMock.Verify(
+            x => x.SendOnboardingSubmittedEmailAsync("u@test.com", UserTypeEnum.IndividualInvestor, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_CorporateComplete_SendsOnboardingSubmittedEmail()
+    {
+        var corporateUser = CreateVerifiedUser(UserTypeEnum.CorporateInvestor);
+        var onboarding = new UserOnboarding { UserId = 1, Status = OnboardingStatus.Draft, CurrentStep = OnboardingStep.Review };
+        var profile = new UserInvestmentProfile { UserId = 1, InvestorCategory = InvestorCategory.OtherCorporateInvestor };
+        SetupSuccessfulSubmit(corporateUser, onboarding, profile);
+
+        var result = await _handler.Handle(new SubmitOnboardingCommand(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _emailServiceMock.Verify(
+            x => x.SendOnboardingSubmittedEmailAsync("u@test.com", UserTypeEnum.CorporateInvestor, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_EmailServiceThrows_SubmitStillSucceedsAndPersistsOnboarding()
+    {
+        var onboarding = new UserOnboarding { UserId = 1, Status = OnboardingStatus.Draft, CurrentStep = OnboardingStep.Review };
+        var profile = new UserInvestmentProfile { UserId = 1, InvestorCategory = InvestorCategory.Retail };
+        SetupSuccessfulSubmit(VerifiedUser, onboarding, profile);
+        _emailServiceMock
+            .Setup(x => x.SendOnboardingSubmittedEmailAsync(It.IsAny<string>(), It.IsAny<UserTypeEnum>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("SMTP unavailable"));
+
+        var result = await _handler.Handle(new SubmitOnboardingCommand(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _onboardingRepoMock.Verify(x => x.UpdateAsync(It.Is<UserOnboarding>(e =>
+            e.Status == OnboardingStatus.Submitted &&
+            e.CurrentStep == OnboardingStep.Submitted &&
+            e.SubmittedAt != null
+        ), It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -234,6 +294,9 @@ public class SubmitOnboardingCommandHandlerTests
         var result = await _handler.Handle(new SubmitOnboardingCommand(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
+        _emailServiceMock.Verify(
+            x => x.SendOnboardingSubmittedEmailAsync("u@test.com", UserTypeEnum.FundRaiser, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
