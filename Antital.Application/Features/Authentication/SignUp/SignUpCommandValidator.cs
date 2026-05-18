@@ -42,36 +42,36 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
             .MinimumLength(2).WithMessage("Last name must be at least 2 characters long.")
             .MaximumLength(50).WithMessage("Last name must not exceed 50 characters.");
 
-        // PhoneNumber validation
-        RuleFor(x => x.PhoneNumber)
-            .NotEmpty().WithMessage("Phone number is required.")
-            .Must(ValidationHelper.IsValidString).WithMessage("Phone number is required.");
+        // Personal identity/contact fields are required for individual/corporate signup.
+        // Fundraiser captures representative details later in onboarding.
+        When(x => !x.UserType.Equals("Fundraiser", StringComparison.OrdinalIgnoreCase), () =>
+        {
+            RuleFor(x => x.PhoneNumber)
+                .NotEmpty().WithMessage("Phone number is required.")
+                .Must(ValidationHelper.IsValidString).WithMessage("Phone number is required.");
 
-        // DateOfBirth validation - must be 18+ years old
-        RuleFor(x => x.DateOfBirth)
-            .NotEmpty().WithMessage("Date of birth is required.")
-            .Must(BeAtLeast18YearsOld).WithMessage("You must be at least 18 years old to register.");
+            RuleFor(x => x.DateOfBirth)
+                .NotNull().WithMessage("Date of birth is required.")
+                .Must(d => d.HasValue && d.Value != default).WithMessage("Date of birth is required.")
+                .Must(d => d.HasValue && BeAtLeast18YearsOld(d.Value)).WithMessage("You must be at least 18 years old to register.");
 
-        // Nationality validation
-        RuleFor(x => x.Nationality)
-            .NotEmpty().WithMessage("Nationality is required.")
-            .MaximumLength(100).WithMessage("Nationality must not exceed 100 characters.");
+            RuleFor(x => x.Nationality)
+                .NotEmpty().WithMessage("Nationality is required.")
+                .MaximumLength(100).WithMessage("Nationality must not exceed 100 characters.");
 
-        // CountryOfResidence validation
-        RuleFor(x => x.CountryOfResidence)
-            .NotEmpty().WithMessage("Country of residence is required.")
-            .MaximumLength(100).WithMessage("Country of residence must not exceed 100 characters.");
+            RuleFor(x => x.CountryOfResidence)
+                .NotEmpty().WithMessage("Country of residence is required.")
+                .MaximumLength(100).WithMessage("Country of residence must not exceed 100 characters.");
 
-        // StateOfResidence validation
-        RuleFor(x => x.StateOfResidence)
-            .NotEmpty().WithMessage("State of residence is required.")
-            .MaximumLength(100).WithMessage("State of residence must not exceed 100 characters.");
+            RuleFor(x => x.StateOfResidence)
+                .NotEmpty().WithMessage("State of residence is required.")
+                .MaximumLength(100).WithMessage("State of residence must not exceed 100 characters.");
 
-        // ResidentialAddress validation
-        RuleFor(x => x.ResidentialAddress)
-            .NotEmpty().WithMessage("Residential address is required.")
-            .MinimumLength(10).WithMessage("Residential address must be at least 10 characters long.")
-            .MaximumLength(500).WithMessage("Residential address must not exceed 500 characters.");
+            RuleFor(x => x.ResidentialAddress)
+                .NotEmpty().WithMessage("Residential address is required.")
+                .MinimumLength(10).WithMessage("Residential address must be at least 10 characters long.")
+                .MaximumLength(500).WithMessage("Residential address must not exceed 500 characters.");
+        });
 
         // HasAgreedToTerms validation
         RuleFor(x => x.HasAgreedToTerms)

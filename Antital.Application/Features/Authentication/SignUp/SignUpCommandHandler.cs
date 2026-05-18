@@ -49,6 +49,7 @@ public class SignUpCommandHandler(
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenDays);
 
         var userType = MapUserType(request.UserType);
+        var isFundRaiser = userType == UserTypeEnum.FundRaiser;
 
         // 5. Create User entity
         var user = new User
@@ -62,12 +63,12 @@ public class SignUpCommandHandler(
             FirstName = request.FirstName,
             LastName = request.LastName,
             PreferredName = request.PreferredName,
-            PhoneNumber = request.PhoneNumber,
-            DateOfBirth = request.DateOfBirth,
-            Nationality = request.Nationality,
-            CountryOfResidence = request.CountryOfResidence,
-            StateOfResidence = request.StateOfResidence,
-            ResidentialAddress = request.ResidentialAddress,
+            PhoneNumber = request.PhoneNumber ?? string.Empty,
+            DateOfBirth = request.DateOfBirth ?? (isFundRaiser ? DateTime.MinValue : throw new BadRequestException("Invalid personal information.", new Dictionary<string, string[]> { { "DateOfBirth", ["Date of birth is required."] } })),
+            Nationality = request.Nationality ?? string.Empty,
+            CountryOfResidence = request.CountryOfResidence ?? string.Empty,
+            StateOfResidence = request.StateOfResidence ?? string.Empty,
+            ResidentialAddress = request.ResidentialAddress ?? string.Empty,
             HasAgreedToTerms = request.HasAgreedToTerms,
             RefreshTokenHash = refreshTokenHash,
             RefreshTokenExpiresAt = refreshTokenExpiry
