@@ -52,7 +52,6 @@ public class SubmitOnboardingCommandHandler(
         var errors = new Dictionary<string, string[]>();
 
         if (string.IsNullOrWhiteSpace(profile.CompanyLegalName)
-            || string.IsNullOrWhiteSpace(profile.TradingBrandName)
             || string.IsNullOrWhiteSpace(profile.RegistrationType)
             || string.IsNullOrWhiteSpace(profile.RegistrationNumber)
             || string.IsNullOrWhiteSpace(profile.CompanyLoginEmail)

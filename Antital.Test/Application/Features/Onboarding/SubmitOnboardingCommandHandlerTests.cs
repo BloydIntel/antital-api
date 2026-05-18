@@ -235,4 +235,57 @@ public class SubmitOnboardingCommandHandlerTests
 
         result.IsSuccess.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task Handle_FundRaiserComplete_WithNullTradingBrandName_Success()
+    {
+        var fundRaiserUser = CreateVerifiedUser(UserTypeEnum.FundRaiser);
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, fundRaiserUser));
+
+        var onboarding = new UserOnboarding { UserId = 1, Status = OnboardingStatus.Draft, CurrentStep = OnboardingStep.Review };
+        var profile = new UserInvestmentProfile
+        {
+            UserId = 1,
+            CompanyLegalName = "Acme",
+            TradingBrandName = null,
+            RegistrationType = "LTD",
+            RegistrationNumber = "RC123",
+            CompanyLoginEmail = "ops@acme.com",
+            DateOfRegistration = new DateTime(2020, 1, 1),
+            BusinessAddress = "Address",
+            RegisteredAddress = "Address",
+            CompanyEmail = "info@acme.com",
+            CompanyPhone = "+234",
+            RepresentativeFullName = "Rep",
+            RepresentativeJobTitle = "Director",
+            RepresentativePhoneNumber = "+234",
+            RepresentativeDateOfBirth = new DateTime(1990, 1, 1),
+            RepresentativeEmail = "rep@acme.com",
+            RepresentativeNationality = "Nigerian",
+            RepresentativeCountryOfResidence = "Nigeria",
+            RepresentativeAddress = "Address",
+            FounderAndTeamIntroductionDocumentPathOrKey = "founders.png",
+            FundraisingDeckDocumentPathOrKey = "deck.png",
+            InvestmentMemoDocumentPathOrKey = "memo.png",
+            TermsOfOfferingDocumentPathOrKey = "terms.png",
+            BusinessDescription = "Business",
+            BusinessSector = "Technology",
+            InstrumentType = "Equity",
+            BusinessSize = "Micro",
+            FundingTarget = 100000m,
+            InvestmentRound = "Pre-Seed",
+            FundRaiserPaymentMethod = "Bank Transfer",
+            FundRaiserPaymentReference = "PAY-001",
+            FundRaiserPaymentStatus = "Paid",
+            FundRaiserApplicationFeePaid = true
+        };
+        _onboardingRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(onboarding);
+        _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(profile);
+        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserKyc { UserId = 1, IdType = KycIdType.NationalIdCard, GovernmentIdDocumentPathOrKey = "gov.png", ProofOfAddressDocumentPathOrKey = "proof.png" });
+
+        var result = await _handler.Handle(new SubmitOnboardingCommand(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
 }

@@ -16,11 +16,12 @@ public class DatabaseFixture : IDisposable
 
     public DatabaseFixture()
     {
-        var configuredConnectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING")
+        var explicitConnectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING");
+        var configuredConnectionString = explicitConnectionString
             ?? "Host=localhost;Port=5432;Database=antitaldb_test;Username=crownedprinz;Password=";
 
         // Use an isolated database per test run unless an explicit DB connection string is provided.
-        var useExplicitDb = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING"));
+        var useExplicitDb = !string.IsNullOrWhiteSpace(explicitConnectionString);
         if (useExplicitDb)
         {
             _connectionString = configuredConnectionString;
@@ -32,7 +33,6 @@ public class DatabaseFixture : IDisposable
                 Database = $"antitaldb_test_{Guid.NewGuid():N}"
             };
             _connectionString = builder.ConnectionString;
-            Environment.SetEnvironmentVariable("TEST_DB_CONNECTION_STRING", _connectionString);
         }
         
         var options = new DbContextOptionsBuilder<AntitalDBContext>()
