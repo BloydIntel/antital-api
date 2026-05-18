@@ -33,6 +33,125 @@ public class SignUpCommandValidatorTests
         );
     }
 
+    #region UserType Validation Tests
+
+    [Fact]
+    public void Validate_UserTypeIsEmpty_ShouldHaveValidationError()
+    {
+        var command = CreateValidCommand() with { UserType = string.Empty };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x.UserType)
+            .WithErrorMessage("User type is required.");
+    }
+
+    [Fact]
+    public void Validate_UserTypeIsUnsupported_ShouldHaveValidationError()
+    {
+        var command = CreateValidCommand() with { UserType = "Admin" };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x.UserType)
+            .WithErrorMessage("User type must be IndividualInvestor, CorporateInvestor, or Fundraiser.");
+    }
+
+    [Theory]
+    [InlineData("IndividualInvestor")]
+    [InlineData("CorporateInvestor")]
+    [InlineData("Fundraiser")]
+    [InlineData("FundRaiser")]
+    public void Validate_UserTypeIsSupported_ShouldNotHaveValidationError(string userType)
+    {
+        var command = CreateValidCommand() with { UserType = userType };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldNotHaveValidationErrorFor(x => x.UserType);
+    }
+
+    [Fact]
+    public void Validate_NonCorporateUserType_WithCorporateFields_ShouldHaveValidationError()
+    {
+        var command = CreateValidCommand() with
+        {
+            UserType = "IndividualInvestor",
+            CompanyLegalName = "Acme Ventures Ltd",
+            RepresentativeFullName = "Jane Doe"
+        };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x)
+            .WithErrorMessage("Corporate signup fields are only allowed when user type is CorporateInvestor.");
+    }
+
+    [Fact]
+    public void Validate_CorporateUserType_WithCorporateFields_ShouldNotHaveValidationError()
+    {
+        var command = CreateValidCommand() with
+        {
+            UserType = "CorporateInvestor",
+            CorporateInvestorCategory = "QualifiedInstitutionalInvestor",
+            CompanyLegalName = "Acme Ventures Ltd",
+            TradingBrandName = "Acme",
+            RegistrationType = "LTD",
+            RegistrationNumber = "RC12345",
+            CompanyLoginEmail = "ops@acme.com",
+            DateOfRegistration = new DateTime(2020, 1, 15),
+            CompanyWebsite = "https://acme.com",
+            BusinessAddress = "23A Unity Crescent, Lekki",
+            RegisteredAddress = "23A Unity Crescent, Lekki",
+            CompanyEmail = "info@acme.com",
+            CompanyPhone = "+2348012345678",
+            RepresentativeFullName = "Jane Corp",
+            RepresentativeJobTitle = "Director",
+            RepresentativePhoneNumber = "+2348098765432",
+            RepresentativeDateOfBirth = new DateTime(1990, 5, 10),
+            RepresentativeEmail = "jane.rep@acme.com",
+            RepresentativeNationality = "Nigerian",
+            RepresentativeCountryOfResidence = "Nigeria",
+            RepresentativeAddress = "Lekki, Lagos"
+        };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldNotHaveValidationErrorFor(x => x);
+    }
+
+    [Fact]
+    public void Validate_CorporateUserType_WithoutCorporateCategory_ShouldHaveValidationError()
+    {
+        var command = CreateValidCommand() with
+        {
+            UserType = "CorporateInvestor",
+            CorporateInvestorCategory = null
+        };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x)
+            .WithErrorMessage("CorporateInvestor signup requires corporate investor category: QualifiedInstitutionalInvestor or OtherCorporateInvestor.");
+    }
+
+    [Fact]
+    public void Validate_NonCorporateUserType_WithCorporateCategory_ShouldHaveValidationError()
+    {
+        var command = CreateValidCommand() with
+        {
+            UserType = "IndividualInvestor",
+            CorporateInvestorCategory = "QualifiedInstitutionalInvestor"
+        };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x)
+            .WithErrorMessage("Corporate investor category is only allowed when user type is CorporateInvestor.");
+    }
+
+    #endregion
+
     #region Email Validation Tests
 
     [Fact]

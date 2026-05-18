@@ -151,7 +151,8 @@ public class SaveOnboardingCommandHandlerTests
     {
         var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.Kyc, Status = OnboardingStatus.Draft };
         _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
-        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserKyc?)null);
+        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserKyc?)null);
 
         var cmd = new SaveOnboardingCommand(
             OnboardingStep.Kyc,
@@ -344,5 +345,98 @@ public class SaveOnboardingCommandHandlerTests
             k.IncorporationCertificateDocumentPathOrKey == "inc-path" &&
             k.RecentStatusReportDocumentPathOrKey == "status-path" &&
             k.BoardResolutionDocumentPathOrKey == "board-path"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_KycStep_WithKycAndCorporateQiiDocs_UpdatesBoth()
+    {
+        var corporateUser = new User
+        {
+            Id = 1,
+            Email = "corp@test.com",
+            IsEmailVerified = true,
+            FirstName = "Corp",
+            LastName = "User",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.CorporateInvestor
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, corporateUser));
+
+        var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.Kyc, Status = OnboardingStatus.Draft };
+        _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
+        _kycRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((UserKyc?)null);
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", "gov-id", "proof", "selfie", "income", "Payslip"),
+            CorporateQiiDocumentsPayload: new CorporateQiiDocumentsPayload(
+                "qii-status-path",
+                "qii-license-path",
+                "qii-board-path"
+            )
+        );
+
+        var result = await _handler.Handle(cmd, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _kycRepoMock.Verify(x => x.AddAsync(It.Is<UserKyc>(k =>
+            k.Nin == "12345678901" &&
+            k.Bvn == "21234567890" &&
+            k.GovernmentIdDocumentPathOrKey == "gov-id" &&
+            k.ProofOfAddressDocumentPathOrKey == "proof" &&
+            k.SelfieVerificationPathOrKey == "selfie" &&
+            k.IncomeVerificationPathOrKey == "income" &&
+            k.RecentStatusReportDocumentPathOrKey == "qii-status-path" &&
+            k.QiiLicenseEvidenceDocumentPathOrKey == "qii-license-path" &&
+            k.BoardResolutionDocumentPathOrKey == "qii-board-path"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_KycStep_WithCorporateDocs_ForIndividualUser_ThrowsBadRequest()
+    {
+        var individualUser = new User
+        {
+            Id = 1,
+            Email = "ind@test.com",
+            IsEmailVerified = true,
+            FirstName = "Ind",
+            LastName = "User",
+            PhoneNumber = "+1",
+            DateOfBirth = DateTime.UtcNow.AddYears(-30),
+            Nationality = "NG",
+            CountryOfResidence = "NG",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "Addr",
+            PasswordHash = "x",
+            UserType = UserTypeEnum.IndividualInvestor
+        };
+        _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, individualUser));
+
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.NationalIdCard, "12345678901", "21234567890", "gov-id", "proof", "selfie", "income", "Payslip"),
+            CorporateQiiDocumentsPayload: new CorporateQiiDocumentsPayload(
+                "qii-status-path",
+                "qii-license-path",
+                "qii-board-path"
+            )
+        );
+
+        await _handler.Invoking(h => h.Handle(cmd, CancellationToken.None))
+            .Should().ThrowAsync<BadRequestException>();
+
+        _onboardingRepoMock.Verify(x => x.GetOrCreateForUserAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _kycRepoMock.Verify(x => x.AddAsync(It.IsAny<UserKyc>(), It.IsAny<CancellationToken>()), Times.Never);
+        _kycRepoMock.Verify(x => x.UpdateAsync(It.IsAny<UserKyc>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
