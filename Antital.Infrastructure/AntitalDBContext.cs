@@ -13,6 +13,21 @@ public class AntitalDBContext(
     public DbSet<UserOnboarding> UserOnboardings { get; set; }
     public DbSet<UserInvestmentProfile> UserInvestmentProfiles { get; set; }
     public DbSet<UserKyc> UserKycs { get; set; }
+    public DbSet<InvestmentOffering> InvestmentOfferings { get; set; }
+    public DbSet<OfferingFunding> OfferingFundings { get; set; }
+    public DbSet<DealTerms> DealTerms { get; set; }
+    public DbSet<Highlight> Highlights { get; set; }
+    public DbSet<OfferingContentBlock> OfferingContentBlocks { get; set; }
+    public DbSet<ContentBlockItem> ContentBlockItems { get; set; }
+    public DbSet<TeamMember> TeamMembers { get; set; }
+    public DbSet<FinancialMetric> FinancialMetrics { get; set; }
+    public DbSet<UseOfProceedsItem> UseOfProceedsItems { get; set; }
+    public DbSet<OfferingRisk> OfferingRisks { get; set; }
+    public DbSet<OfferingDocument> OfferingDocuments { get; set; }
+    public DbSet<MediaAsset> MediaAssets { get; set; }
+    public DbSet<OfferingUpdate> OfferingUpdates { get; set; }
+    public DbSet<Testimonial> Testimonials { get; set; }
+    public DbSet<OfferingCorporateProfile> OfferingCorporateProfiles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -128,6 +143,139 @@ public class AntitalDBContext(
         {
             entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.UserId).IsUnique();
+        });
+
+        ConfigureInvestmentOfferings(modelBuilder);
+    }
+
+    private static void ConfigureInvestmentOfferings(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<InvestmentOffering>(entity =>
+        {
+            entity.HasIndex(e => e.Slug).IsUnique().HasFilter("\"IsDeleted\" = false");
+            entity.Property(e => e.Slug).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Category).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Tagline).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.CoverImageUrl).HasMaxLength(500).IsRequired();
+        });
+
+        modelBuilder.Entity<OfferingFunding>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithOne(o => o.Funding).HasForeignKey<OfferingFunding>(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.OfferingId).IsUnique();
+        });
+
+        modelBuilder.Entity<DealTerms>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithOne(o => o.DealTerms).HasForeignKey<DealTerms>(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.OfferingId).IsUnique();
+        });
+
+        modelBuilder.Entity<OfferingCorporateProfile>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithOne(o => o.CorporateProfile).HasForeignKey<OfferingCorporateProfile>(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.OfferingId).IsUnique();
+            entity.Property(e => e.EntityType).HasMaxLength(100);
+            entity.Property(e => e.Jurisdiction).HasMaxLength(100);
+            entity.Property(e => e.RegistrationId).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<Highlight>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.Highlights).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Headline).HasMaxLength(200);
+            entity.Property(e => e.Body).HasMaxLength(2000).IsRequired();
+        });
+
+        modelBuilder.Entity<OfferingContentBlock>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.ContentBlocks).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Key).HasMaxLength(100);
+            entity.Property(e => e.Title).HasMaxLength(300);
+            entity.Property(e => e.Summary).HasMaxLength(4000);
+        });
+
+        modelBuilder.Entity<ContentBlockItem>(entity =>
+        {
+            entity.HasOne(e => e.ContentBlock).WithMany(b => b.Items).HasForeignKey(e => e.ContentBlockId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Label).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Body).HasMaxLength(4000).IsRequired();
+        });
+
+        modelBuilder.Entity<TeamMember>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.TeamMembers).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Title).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Bio).HasMaxLength(4000).IsRequired();
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<FinancialMetric>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.FinancialMetrics).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.MetricName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.PeriodLabel).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.CurrencyCode).HasMaxLength(10);
+        });
+
+        modelBuilder.Entity<UseOfProceedsItem>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.UseOfProceedsItems).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Category).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(2000).IsRequired();
+        });
+
+        modelBuilder.Entity<OfferingRisk>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.Risks).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Category).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(4000).IsRequired();
+            entity.Property(e => e.Mitigation).HasMaxLength(4000).IsRequired();
+        });
+
+        modelBuilder.Entity<OfferingDocument>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.Documents).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Title).HasMaxLength(300).IsRequired();
+            entity.Property(e => e.FileUrl).HasMaxLength(500).IsRequired();
+        });
+
+        modelBuilder.Entity<MediaAsset>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.MediaAssets).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Url).HasMaxLength(500).IsRequired();
+        });
+
+        modelBuilder.Entity<OfferingUpdate>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.Updates).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Title).HasMaxLength(300).IsRequired();
+            entity.Property(e => e.Body).HasMaxLength(8000).IsRequired();
+        });
+
+        modelBuilder.Entity<Testimonial>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.Testimonials).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Quote).HasMaxLength(4000).IsRequired();
+            entity.Property(e => e.AuthorName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.AuthorTitle).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
         });
     }
 }

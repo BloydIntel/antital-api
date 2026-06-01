@@ -7,6 +7,7 @@ using System.Globalization;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Antital.Infrastructure;
+using Antital.Infrastructure.Seed;
 using System.Text;
 
 namespace Antital.API.Configs;
@@ -112,6 +113,11 @@ public static class AppUseExtensions
                 }
 
                 context.Database.Migrate();
+
+                if (!env.IsEnvironment("Testing"))
+                {
+                    InvestmentOfferingSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
+                }
             }
             catch (Exception ex)
             {
