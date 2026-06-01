@@ -8,4 +8,5 @@ public interface IAntitalUnitOfWork : IUnitOfWork
     IUserOnboardingRepository UserOnboardingRepository { get; init; }
     IUserInvestmentProfileRepository UserInvestmentProfileRepository { get; init; }
     IUserKycRepository UserKycRepository { get; init; }
+    IInvestmentOfferingRepository InvestmentOfferingRepository { get; init; }
 }

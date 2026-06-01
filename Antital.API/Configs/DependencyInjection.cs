@@ -1,3 +1,4 @@
+using Antital.Application.Features.Investments;
 using Antital.Application.Features.Onboarding;
 using Antital.Application.Services;
 using Antital.Domain.Interfaces;
@@ -55,6 +56,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IUserOnboardingRepository), typeof(UserOnboardingRepository));
         services.AddScoped(typeof(IUserInvestmentProfileRepository), typeof(UserInvestmentProfileRepository));
         services.AddScoped(typeof(IUserKycRepository), typeof(UserKycRepository));
+        services.AddScoped(typeof(IInvestmentOfferingRepository), typeof(InvestmentOfferingRepository));
 
         return services;
     }
@@ -98,6 +100,7 @@ public static class DependencyInjection
         services.AddScoped<IAntitalCurrentUser, AntitalCurrentUser>();
         services.AddScoped<IKycVerificationService, PassThroughKycVerificationService>();
         services.AddScoped<IOnboardingUserAccess, OnboardingUserAccess>();
+        services.AddScoped<InvestmentOfferingAccess>();
 
         return services;
     }

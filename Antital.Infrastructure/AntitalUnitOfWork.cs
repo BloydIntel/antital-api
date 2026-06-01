@@ -8,11 +8,13 @@ public class AntitalUnitOfWork(
     IUserRepository userRepository,
     IUserOnboardingRepository userOnboardingRepository,
     IUserInvestmentProfileRepository userInvestmentProfileRepository,
-    IUserKycRepository userKycRepository
+    IUserKycRepository userKycRepository,
+    IInvestmentOfferingRepository investmentOfferingRepository
 ) : UnitOfWork(dbContext), IAntitalUnitOfWork
 {
     public IUserRepository UserRepository { get; init; } = userRepository;
     public IUserOnboardingRepository UserOnboardingRepository { get; init; } = userOnboardingRepository;
     public IUserInvestmentProfileRepository UserInvestmentProfileRepository { get; init; } = userInvestmentProfileRepository;
     public IUserKycRepository UserKycRepository { get; init; } = userKycRepository;
+    public IInvestmentOfferingRepository InvestmentOfferingRepository { get; init; } = investmentOfferingRepository;
 }
