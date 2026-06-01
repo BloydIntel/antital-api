@@ -132,20 +132,24 @@ internal static class InvestmentMappers
             testimonial.ImageUrl,
             testimonial.SortOrder);
 
-    public static OfferingRiskLevel? ParseRiskFilter(string? risk)
+    public static bool TryParseRiskFilter(string? risk, out OfferingRiskLevel? parsed)
     {
+        parsed = null;
+
         if (string.IsNullOrWhiteSpace(risk))
         {
-            return null;
+            return true;
         }
 
-        return risk.Trim().ToLowerInvariant() switch
+        parsed = risk.Trim().ToLowerInvariant() switch
         {
             "low" => OfferingRiskLevel.Low,
             "moderate" => OfferingRiskLevel.Moderate,
             "high" => OfferingRiskLevel.High,
             _ => null,
         };
+
+        return parsed.HasValue;
     }
 
     private static string ToRiskString(OfferingRiskLevel risk) =>

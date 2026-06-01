@@ -26,6 +26,7 @@ public class InvestmentOfferingRepository(
         var query = PublishedOfferings
             .Include(o => o.Funding)
             .Include(o => o.DealTerms)
+            .Where(o => o.Funding != null && o.DealTerms != null)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(category))
@@ -185,5 +186,6 @@ public class InvestmentOfferingRepository(
         PublishedOfferings
             .Include(o => o.Funding)
             .Include(o => o.DealTerms)
-            .Include(o => o.CorporateProfile);
+            .Include(o => o.CorporateProfile)
+            .Where(o => o.Funding != null && o.DealTerms != null);
 }

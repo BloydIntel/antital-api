@@ -64,6 +64,17 @@ public class InvestmentsControllerTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
+    public async Task List_InvalidRisk_ReturnsValidationError()
+    {
+        var response = await _client.GetAsync("/api/investments?risk=foo");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<InvestmentListResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeFalse();
+        result.ValidationErrors.Should().ContainKey("risk");
+    }
+
+    [Fact]
     public async Task GetShell_BySlug_ReturnsOfferingFundingAndDealTerms()
     {
         var offering = await SeedOfferingAsync("shell-co", OfferingRiskLevel.Moderate, OfferingStatus.Published, "Agri");

@@ -103,7 +103,7 @@ public static class InvestmentOfferingSeed
         offering.DealTerms.MaximumInvestment = 250_000m;
         offering.DealTerms.MinimumThreshold = 15_000_000m;
         offering.DealTerms.FundingGoal = 25_000_000m;
-        offering.DealTerms.Deadline = new DateTime(2025, 10, 21, 6, 59, 0, DateTimeKind.Utc);
+        offering.DealTerms.Deadline = DateTime.UtcNow.AddDays(234);
 
         var corporateProfile = new OfferingCorporateProfile
         {
