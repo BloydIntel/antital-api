@@ -2,25 +2,36 @@ using Antital.Domain.Enums;
 using Antital.Domain.Interfaces;
 using System.IO;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Mail;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http;
 
 namespace Antital.Infrastructure.Services;
 
 public class EmailService : IEmailService
 {
+    public const string MailgunHttpClientName = "Mailgun";
+
     private readonly ILogger<EmailService> _logger;
     private readonly EmailSettings _settings;
     private readonly IHostEnvironment _env;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _templatesRoot;
 
-    public EmailService(ILogger<EmailService> logger, IOptions<EmailSettings> options, IHostEnvironment env)
+    public EmailService(
+        ILogger<EmailService> logger,
+        IOptions<EmailSettings> options,
+        IHostEnvironment env,
+        IHttpClientFactory httpClientFactory)
     {
         _logger = logger;
         _settings = options.Value;
         _env = env;
+        _httpClientFactory = httpClientFactory;
         _templatesRoot = Path.Combine(AppContext.BaseDirectory, "EmailTemplates");
     }
 
@@ -167,11 +178,70 @@ public class EmailService : IEmailService
 
     private async Task SendEmailAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(_settings.SmtpHost))
+        if (_settings.UseMailgunApi)
         {
+            await SendViaMailgunAsync(to, subject, htmlBody, cancellationToken);
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(_settings.SmtpHost))
+        {
+            _logger.LogWarning("Email to {Email} skipped: configure Mailgun API or SMTP.", to);
+            return;
+        }
+
+        await SendViaSmtpAsync(to, subject, htmlBody, cancellationToken);
+    }
+
+    private async Task SendViaMailgunAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken)
+    {
+        var from = string.IsNullOrWhiteSpace(_settings.FromName)
+            ? _settings.FromEmail
+            : $"{_settings.FromName} <{_settings.FromEmail}>";
+
+        using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["from"] = from,
+            ["to"] = to,
+            ["subject"] = subject,
+            ["html"] = htmlBody
+        });
+
+        var baseUrl = _settings.MailgunApiBaseUrl.TrimEnd('/');
+        var requestUri = $"{baseUrl}/v3/{_settings.MailgunDomain}/messages";
+        using var request = new HttpRequestMessage(HttpMethod.Post, requestUri)
+        {
+            Content = content
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Basic",
+            Convert.ToBase64String(Encoding.ASCII.GetBytes($"api:{_settings.MailgunApiKey}")));
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient(MailgunHttpClientName);
+            using var response = await client.SendAsync(request, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Email sent to {Email} via Mailgun.", to);
+                return;
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError(
+                "Mailgun returned {StatusCode} sending email to {Email}: {ResponseBody}",
+                (int)response.StatusCode,
+                to,
+                responseBody);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send email to {Email} via Mailgun.", to);
+        }
+    }
+
+    private async Task SendViaSmtpAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken)
+    {
         using var message = new MailMessage
         {
             From = new MailAddress(_settings.FromEmail, _settings.FromName),
@@ -192,11 +262,11 @@ public class EmailService : IEmailService
         try
         {
             await client.SendMailAsync(message, cancellationToken);
-            _logger.LogInformation("Verification email sent to {Email}.", to);
+            _logger.LogInformation("Email sent to {Email} via SMTP.", to);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {Email}.", to);
+            _logger.LogError(ex, "Failed to send email to {Email} via SMTP.", to);
         }
     }
 
