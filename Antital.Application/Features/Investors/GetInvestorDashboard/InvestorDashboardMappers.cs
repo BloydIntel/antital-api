@@ -34,7 +34,9 @@ internal static class InvestorDashboardMappers
             holding.CurrentValue,
             holding.Returns,
             holding.UnitHolding,
-            holding.InvestedAt);
+            holding.InvestedAt,
+            offering.Funding?.FundingGoal ?? 0m,
+            offering.Funding?.RaisedAmount ?? 0m);
     }
 
     private static string ToRiskString(OfferingRiskLevel risk) =>
