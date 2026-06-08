@@ -21,11 +21,11 @@ services:
       ASPNETCORE_HTTP_PORTS: 8001
       ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection}
       Jwt__Key: ${Jwt__Key}
-      EmailSettings__SmtpHost: ${EmailSettings__SmtpHost}
-      EmailSettings__SmtpPort: ${EmailSettings__SmtpPort}
-      EmailSettings__SmtpUser: ${EmailSettings__SmtpUser}
-      EmailSettings__SmtpPassword: ${EmailSettings__SmtpPassword}
-      EmailSettings__EnableSsl: ${EmailSettings__EnableSsl}
+      EmailSettings__MailgunDomain: ${EmailSettings__MailgunDomain}
+      EmailSettings__MailgunApiKey: ${EmailSettings__MailgunApiKey}
+      EmailSettings__MailgunApiBaseUrl: ${EmailSettings__MailgunApiBaseUrl:-https://api.mailgun.net}
+      EmailSettings__FromEmail: ${EmailSettings__FromEmail}
+      EmailSettings__FromName: ${EmailSettings__FromName:-Antital}
       EmailSettings__BaseUrl: ${EmailSettings__BaseUrl}
     depends_on:
       - db

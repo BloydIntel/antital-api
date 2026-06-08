@@ -1,4 +1,5 @@
 using Antital.Application.Features.Investments;
+using Antital.Application.Features.Investors;
 using Antital.Application.Features.Onboarding;
 using Antital.Application.Services;
 using Antital.Domain.Interfaces;
@@ -57,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IUserInvestmentProfileRepository), typeof(UserInvestmentProfileRepository));
         services.AddScoped(typeof(IUserKycRepository), typeof(UserKycRepository));
         services.AddScoped(typeof(IInvestmentOfferingRepository), typeof(InvestmentOfferingRepository));
+        services.AddScoped(typeof(IInvestorDashboardRepository), typeof(InvestorDashboardRepository));
 
         return services;
     }
@@ -91,7 +93,8 @@ public static class DependencyInjection
     {
         // Register EmailSettings
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
-        
+        services.AddHttpClient(EmailService.MailgunHttpClientName);
+
         // Register authentication services
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
@@ -100,6 +103,7 @@ public static class DependencyInjection
         services.AddScoped<IAntitalCurrentUser, AntitalCurrentUser>();
         services.AddScoped<IKycVerificationService, PassThroughKycVerificationService>();
         services.AddScoped<IOnboardingUserAccess, OnboardingUserAccess>();
+        services.AddScoped<IInvestorUserAccess, InvestorUserAccess>();
         services.AddScoped<InvestmentOfferingAccess>();
 
         return services;
