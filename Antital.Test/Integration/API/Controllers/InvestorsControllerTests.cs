@@ -83,7 +83,10 @@ public class InvestorsControllerTests : IClassFixture<CustomWebApplicationFactor
         result.Value!.Summary.AvailableBalance.Should().Be(5_325_400m);
         result.Value.Summary.TotalInvested.Should().Be(25_400_000m);
         result.Value.Summary.Currency.Should().Be("NGN");
-        result.Value.Holdings.Should().ContainSingle(h => h.Slug == "greentech-solutions");
+        result.Value.Holdings.Should().ContainSingle(h =>
+            h.Slug == "greentech-solutions"
+            && h.FundingGoal == 1_100_000m
+            && h.RaisedAmount == 450_000m);
         result.Value.ActiveDeals.Should().ContainSingle(d => d.Slug == "greentech-solutions");
         result.Value.PortfolioPerformance.Should().NotBeEmpty();
     }
