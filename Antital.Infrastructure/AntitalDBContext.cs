@@ -28,6 +28,10 @@ public class AntitalDBContext(
     public DbSet<OfferingUpdate> OfferingUpdates { get; set; }
     public DbSet<Testimonial> Testimonials { get; set; }
     public DbSet<OfferingCorporateProfile> OfferingCorporateProfiles { get; set; }
+    public DbSet<InvestorWallet> InvestorWallets { get; set; }
+    public DbSet<InvestorHolding> InvestorHoldings { get; set; }
+    public DbSet<InvestorWatchlistItem> InvestorWatchlistItems { get; set; }
+    public DbSet<InvestorPortfolioPerformancePoint> InvestorPortfolioPerformancePoints { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -145,7 +149,38 @@ public class AntitalDBContext(
             entity.HasIndex(e => e.UserId).IsUnique();
         });
 
+        ConfigureInvestorDashboard(modelBuilder);
         ConfigureInvestmentOfferings(modelBuilder);
+    }
+
+    private static void ConfigureInvestorDashboard(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<InvestorWallet>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.UserId).IsUnique().HasFilter("\"IsDeleted\" = false");
+            entity.Property(e => e.Currency).HasMaxLength(10).IsRequired();
+        });
+
+        modelBuilder.Entity<InvestorHolding>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Offering).WithMany().HasForeignKey(e => e.OfferingId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.UserId, e.OfferingId, e.InvestedAt });
+        });
+
+        modelBuilder.Entity<InvestorWatchlistItem>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Offering).WithMany().HasForeignKey(e => e.OfferingId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.UserId, e.OfferingId }).IsUnique().HasFilter("\"IsDeleted\" = false");
+        });
+
+        modelBuilder.Entity<InvestorPortfolioPerformancePoint>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.UserId, e.Year, e.Month }).IsUnique().HasFilter("\"IsDeleted\" = false");
+        });
     }
 
     private static void ConfigureInvestmentOfferings(ModelBuilder modelBuilder)
