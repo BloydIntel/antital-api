@@ -91,7 +91,8 @@ public static class DependencyInjection
     {
         // Register EmailSettings
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
-        
+        services.AddHttpClient(EmailService.MailgunHttpClientName);
+
         // Register authentication services
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();

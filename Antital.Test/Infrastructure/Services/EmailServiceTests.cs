@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
+using System.Net.Http;
 
 namespace Antital.Test.Infrastructure.Services;
 
@@ -28,7 +29,16 @@ public class EmailServiceTests
         _envMock = new Mock<IHostEnvironment>();
         _envMock.SetupGet(x => x.EnvironmentName).Returns("Testing");
 
-        _emailService = new EmailService(_loggerMock.Object, _optionsMock.Object, _envMock.Object);
+        var httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        httpClientFactoryMock
+            .Setup(x => x.CreateClient(It.IsAny<string>()))
+            .Returns(new HttpClient());
+
+        _emailService = new EmailService(
+            _loggerMock.Object,
+            _optionsMock.Object,
+            _envMock.Object,
+            httpClientFactoryMock.Object);
     }
 
     [Fact]
@@ -69,7 +79,11 @@ public class EmailServiceTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()))
             .Callback<LogLevel, EventId, object, Exception, Delegate>((level, eventId, state, exception, formatter) =>
             {
-                capturedLogMessage = state.ToString() ?? string.Empty;
+                var message = state.ToString() ?? string.Empty;
+                if (message.Contains("Verification Email"))
+                {
+                    capturedLogMessage = message;
+                }
             });
 
         // Act
@@ -98,7 +112,11 @@ public class EmailServiceTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()))
             .Callback<LogLevel, EventId, object, Exception, Delegate>((level, eventId, state, exception, formatter) =>
             {
-                capturedLogMessage = state.ToString() ?? string.Empty;
+                var message = state.ToString() ?? string.Empty;
+                if (message.Contains("Verification Email"))
+                {
+                    capturedLogMessage = message;
+                }
             });
 
         // Act
