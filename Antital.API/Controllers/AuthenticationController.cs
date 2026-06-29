@@ -12,6 +12,7 @@ using Antital.Application.Features.Authentication.Logout;
 using Antital.Application.Features.Authentication.ForgotPassword;
 using Antital.Application.Features.Authentication.ResetPassword;
 using Antital.Application.Features.Authentication.ResendVerificationEmail;
+using Antital.Application.Features.Authentication.ChangePassword;
 using Antital.Application.Features.Authentication.DeleteUnverifiedUser;
 using Antital.Application.Features.Authentication.RequestUnverifiedUserOtp;
 using Antital.Application.Features.Users.GetUsers;
@@ -116,6 +117,18 @@ public class AuthenticationController(IMediator mediator) : BaseController
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid or expired token", typeof(void))]
     [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
     public async Task<IActionResult> ResetPassword(ResetPasswordCommand request, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(request, cancellationToken);
+        return ApiResult(result);
+    }
+
+    [Authorize]
+    [HttpPost("change-password")]
+    [SwaggerOperation("Change Password", "Change password for the authenticated user.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Password changed successfully", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Validation error or incorrect current password", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    public async Task<IActionResult> ChangePassword(ChangePasswordCommand request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(request, cancellationToken);
         return ApiResult(result);
