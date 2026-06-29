@@ -1,6 +1,8 @@
 using Antital.Application.DTOs.Investors;
 using Antital.Application.Features.Investors.AddToWatchlist;
+using Antital.Application.Features.Investors.GetInvestorAccount;
 using Antital.Application.Features.Investors.GetInvestorDashboard;
+using Antital.Application.Features.Investors.GetInvestorProfile;
 using Antital.Application.Features.Investors.GetWatchlist;
 using Antital.Application.Features.Investors.GetWatchlistStatus;
 using Antital.Application.Features.Investors.GetWalletTransaction;
@@ -10,6 +12,7 @@ using Antital.Application.Features.Investors.PaymentMethods.DeletePaymentMethod;
 using Antital.Application.Features.Investors.PaymentMethods.GetPaymentMethods;
 using Antital.Application.Features.Investors.PaymentMethods.SetDefaultPaymentMethod;
 using Antital.Application.Features.Investors.RemoveFromWatchlist;
+using Antital.Application.Features.Investors.UpdateInvestorProfile;
 using BuildingBlocks.API.Controllers;
 using BuildingBlocks.Application.Features;
 using MediatR;
@@ -122,6 +125,48 @@ public class InvestorsController(IMediator mediator) : BaseController
     public async Task<IActionResult> DeletePaymentMethod(int paymentMethodId, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new DeletePaymentMethodCommand(paymentMethodId), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/account")]
+    [SwaggerOperation("Get Investor Account", "Returns account summary for the authenticated investor settings page.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<InvestorAccountResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    public async Task<IActionResult> GetAccount(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetInvestorAccountQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/profile")]
+    [SwaggerOperation("Get Investor Profile", "Returns profile and location fields for the authenticated investor.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<InvestorProfileResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetInvestorProfileQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPut("me/profile")]
+    [SwaggerOperation("Update Investor Profile", "Updates editable profile fields for the authenticated investor.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<InvestorProfileResponse>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Validation error", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    public async Task<IActionResult> UpdateProfile(
+        [FromBody] UpdateInvestorProfileRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(
+            new UpdateInvestorProfileCommand(
+                request.FirstName,
+                request.LastName,
+                request.PreferredName,
+                request.PhoneNumber,
+                request.ResidentialAddress,
+                request.StateOfResidence,
+                request.CountryOfResidence),
+            cancellationToken);
         return ApiResult(result);
     }
 
