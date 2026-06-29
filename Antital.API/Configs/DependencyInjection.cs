@@ -1,4 +1,10 @@
+using System.Net.Http.Headers;
+using Antital.Domain.Configuration;
 using Antital.Application.Features.Investments;
+using Antital.Application.Features.Investments.Checkout;
+using Antital.Application.Features.Investments.ConfirmInvestmentOrder;
+using Antital.Application.Features.Investments.ProcessPaystackWebhook;
+using Antital.Infrastructure.Integrations.Paystack;
 using Antital.Application.Features.Investors;
 using Antital.Application.Features.Onboarding;
 using Antital.Application.Services;
@@ -13,7 +19,9 @@ using Antital.Application.DTOs;
 using FluentValidation;
 using BuildingBlocks.Application.Behaviours;
 using MediatR;
+using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.Filters;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Antital.API.Configs;
 
@@ -59,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IUserKycRepository), typeof(UserKycRepository));
         services.AddScoped(typeof(IInvestmentOfferingRepository), typeof(InvestmentOfferingRepository));
         services.AddScoped(typeof(IInvestorDashboardRepository), typeof(InvestorDashboardRepository));
+        services.AddScoped(typeof(IInvestmentOrderRepository), typeof(InvestmentOrderRepository));
 
         return services;
     }
@@ -85,6 +94,7 @@ public static class DependencyInjection
     private static IServiceCollection RegisterSwagger(this IServiceCollection services)
     {
         services.AddSwaggerExamplesFromAssemblyOf(typeof(UserDto));
+        services.AddTransient<IConfigureOptions<SwaggerGenOptions>, InvestmentCheckoutSwaggerOptions>();
 
         return services;
     }
@@ -93,6 +103,7 @@ public static class DependencyInjection
     {
         // Register EmailSettings
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
+        services.Configure<PaystackSettings>(configuration.GetSection(PaystackSettings.SectionName));
         services.AddHttpClient(EmailService.MailgunHttpClientName);
 
         // Register authentication services
@@ -104,7 +115,22 @@ public static class DependencyInjection
         services.AddScoped<IKycVerificationService, PassThroughKycVerificationService>();
         services.AddScoped<IOnboardingUserAccess, OnboardingUserAccess>();
         services.AddScoped<IInvestorUserAccess, InvestorUserAccess>();
+        services.AddScoped<IInvestmentCheckoutAccess, InvestmentCheckoutAccess>();
+        services.AddScoped<IInvestmentPaymentConfirmationService, InvestmentPaymentConfirmationService>();
+        services.AddScoped<IConfirmInvestmentOrderService, ConfirmInvestmentOrderService>();
+        services.AddScoped<PaystackSignatureValidator>();
         services.AddScoped<InvestmentOfferingAccess>();
+
+        services.AddHttpClient<IPaystackClient, PaystackClient>((serviceProvider, client) =>
+        {
+            client.BaseAddress = new Uri("https://api.paystack.co/");
+
+            var secretKey = serviceProvider.GetRequiredService<IOptions<PaystackSettings>>().Value.SecretKey;
+            if (!string.IsNullOrWhiteSpace(secretKey))
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+            }
+        });
 
         return services;
     }
