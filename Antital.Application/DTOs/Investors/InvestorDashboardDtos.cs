@@ -26,7 +26,9 @@ public record InvestorDashboardHoldingDto(
     decimal CurrentValue,
     decimal Returns,
     int UnitHolding,
-    DateTime Date);
+    DateTime Date,
+    decimal FundingGoal,
+    decimal RaisedAmount);
 
 public record InvestorDashboardResponse(
     InvestorDashboardSummaryDto Summary,

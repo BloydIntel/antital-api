@@ -49,6 +49,10 @@ dotnet restore
 dotnet run --project AntitalAPI.AppHost
 ```
 
+The AppHost wires `NEXT_PUBLIC_API_URL` for the UI and sets `Paystack:CallbackUrl` to the Aspire UI port automatically (e.g. `http://localhost:62388/marketplace/invest/callback`).
+
+**Paystack local dev:** Paystack does not provide a separate webhook secret in the dashboard. Leave `Paystack:WebhookSecret` empty — the API validates webhook signatures using `Paystack:SecretKey`. For localhost, webhooks cannot reach your machine; after Paystack redirect the UI calls `POST /api/investments/orders/{orderId}/verify` to confirm payment via Paystack's verify API.
+
 If you want Aspire workload/templates available locally:
 ```bash
 dotnet workload install aspire

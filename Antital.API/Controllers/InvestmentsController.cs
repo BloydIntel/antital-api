@@ -1,4 +1,5 @@
 using Antital.Application.DTOs.Investments;
+using Antital.Application.Features.Investments.CreateInvestmentOrder;
 using Antital.Application.Features.Investments.GetOfferingContentBlocks;
 using Antital.Application.Features.Investments.GetOfferingDocuments;
 using Antital.Application.Features.Investments.GetOfferingFinancials;
@@ -16,6 +17,8 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using Swashbuckle.AspNetCore.Filters;
+using Antital.Application.Features.Investments.Swagger;
 
 namespace Antital.API.Controllers;
 
@@ -109,4 +112,27 @@ public class InvestmentsController(IMediator mediator) : BaseController
     [SwaggerResponse(StatusCodes.Status404NotFound, "Not found", typeof(void))]
     public async Task<IActionResult> GetTestimonials(string idOrSlug, CancellationToken cancellationToken) =>
         ApiResult(await mediator.Send(new GetOfferingTestimonialsQuery(idOrSlug), cancellationToken));
+
+    [HttpPost("{offeringId:int}/orders")]
+    [Authorize]
+    [SwaggerOperation(
+        "Create Investment Order",
+        "Creates or refreshes a pending checkout order for the authenticated investor. Requires submitted onboarding.")]
+    [SwaggerRequestExample(typeof(CreateInvestmentOrderRequest), typeof(CreateInvestmentOrderRequestExample))]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<CreateInvestmentOrderResponse>))]
+    [SwaggerResponseExample(StatusCodes.Status200OK, typeof(CreateInvestmentOrderResponseExample))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid units or offering closed", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Onboarding incomplete", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "Offering not found", typeof(void))]
+    public async Task<IActionResult> CreateOrder(
+        int offeringId,
+        [FromBody] CreateInvestmentOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(
+            new CreateInvestmentOrderCommand(offeringId, request.Units),
+            cancellationToken);
+        return ApiResult(result);
+    }
 }
