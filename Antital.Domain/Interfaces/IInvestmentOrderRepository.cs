@@ -42,4 +42,12 @@ public interface IInvestmentOrderRepository
     Task UpdateOfferingFundingAsync(OfferingFunding funding, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(InvestmentOrder order, CancellationToken cancellationToken = default);
+
+    Task<(IReadOnlyList<InvestmentOrder> Items, int TotalCount)> ListPaidByUserAsync(
+        int userId,
+        int page,
+        int pageSize,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        CancellationToken cancellationToken = default);
 }
