@@ -1,11 +1,15 @@
 using Antital.Application.DTOs.Investors;
+using Antital.Application.Features.Investors.AddToWatchlist;
 using Antital.Application.Features.Investors.GetInvestorDashboard;
+using Antital.Application.Features.Investors.GetWatchlist;
+using Antital.Application.Features.Investors.GetWatchlistStatus;
 using Antital.Application.Features.Investors.GetWalletTransaction;
 using Antital.Application.Features.Investors.GetWalletTransactions;
 using Antital.Application.Features.Investors.PaymentMethods.AddPaymentMethod;
 using Antital.Application.Features.Investors.PaymentMethods.DeletePaymentMethod;
 using Antital.Application.Features.Investors.PaymentMethods.GetPaymentMethods;
 using Antital.Application.Features.Investors.PaymentMethods.SetDefaultPaymentMethod;
+using Antital.Application.Features.Investors.RemoveFromWatchlist;
 using BuildingBlocks.API.Controllers;
 using BuildingBlocks.Application.Features;
 using MediatR;
@@ -118,6 +122,53 @@ public class InvestorsController(IMediator mediator) : BaseController
     public async Task<IActionResult> DeletePaymentMethod(int paymentMethodId, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new DeletePaymentMethodCommand(paymentMethodId), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/watchlist/status")]
+    [SwaggerOperation("Get Watchlist Status", "Returns whether the authenticated investor has watchlisted the given offering.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<WatchlistStatusResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    public async Task<IActionResult> GetWatchlistStatus(
+        [FromQuery] int offeringId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetWatchlistStatusQuery(offeringId), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/watchlist")]
+    [SwaggerOperation("List Watchlist", "Returns the authenticated investor watchlist with offering details and tab counts.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<WatchlistResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    public async Task<IActionResult> GetWatchlist(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetWatchlistQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPost("me/watchlist")]
+    [SwaggerOperation("Add To Watchlist", "Adds a published investment offering to the authenticated investor watchlist.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<WatchlistItemDto>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "Offering not found", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status409Conflict, "Already on watchlist", typeof(void))]
+    public async Task<IActionResult> AddToWatchlist(
+        [FromBody] AddToWatchlistRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new AddToWatchlistCommand(request.OfferingId), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpDelete("me/watchlist/{offeringId:int}")]
+    [SwaggerOperation("Remove From Watchlist", "Removes an offering from the authenticated investor watchlist.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "Watchlist item not found", typeof(void))]
+    public async Task<IActionResult> RemoveFromWatchlist(int offeringId, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new RemoveFromWatchlistCommand(offeringId), cancellationToken);
         return ApiResult(result);
     }
 }

@@ -161,10 +161,10 @@ internal static class InvestmentMappers
             _ => risk.ToString().ToLowerInvariant(),
         };
 
-    private static int ComputeFundingProgressPercent(decimal raised, decimal goal) =>
+    internal static int ComputeFundingProgressPercent(decimal raised, decimal goal) =>
         goal <= 0 ? 0 : (int)Math.Round(raised / goal * 100m, MidpointRounding.AwayFromZero);
 
-    private static int? ComputeDaysLeft(DateTime? deadline)
+    internal static int? ComputeDaysLeft(DateTime? deadline)
     {
         if (!deadline.HasValue)
         {
