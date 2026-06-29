@@ -118,6 +118,7 @@ public static class AppUseExtensions
                 {
                     InvestmentOfferingSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     InvestorDashboardSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
+                    WalletTransactionSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                 }
             }
             catch (Exception ex)

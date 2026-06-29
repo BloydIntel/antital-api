@@ -34,6 +34,7 @@ public class AntitalDBContext(
     public DbSet<InvestorPortfolioPerformancePoint> InvestorPortfolioPerformancePoints { get; set; }
     public DbSet<InvestmentOrder> InvestmentOrders { get; set; }
     public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
+    public DbSet<InvestorPaymentMethod> InvestorPaymentMethods { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -218,6 +219,16 @@ public class AntitalDBContext(
         {
             entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => new { e.UserId, e.Year, e.Month }).IsUnique().HasFilter("\"IsDeleted\" = false");
+        });
+
+        modelBuilder.Entity<InvestorPaymentMethod>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.Property(e => e.Title).HasMaxLength(120).IsRequired();
+            entity.Property(e => e.Subtitle).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.ProviderName).HasMaxLength(80).IsRequired();
+            entity.Property(e => e.Last4).HasMaxLength(4).IsRequired();
+            entity.HasIndex(e => new { e.UserId, e.IsDefault }).HasFilter("\"IsDeleted\" = false AND \"IsDefault\" = true");
         });
     }
 

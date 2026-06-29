@@ -96,4 +96,39 @@ public class InvestmentOrderRepository(AntitalDBContext context) : IInvestmentOr
         context.InvestmentOrders.Update(order);
         return Task.CompletedTask;
     }
+
+    public async Task<(IReadOnlyList<InvestmentOrder> Items, int TotalCount)> ListPaidByUserAsync(
+        int userId,
+        int page,
+        int pageSize,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var query = context.InvestmentOrders
+            .AsNoTracking()
+            .Include(o => o.Offering)
+            .Where(o => o.UserId == userId
+                        && o.Status == InvestmentOrderStatus.Paid
+                        && !o.IsDeleted);
+
+        if (fromUtc.HasValue)
+        {
+            query = query.Where(o => (o.PaidAt ?? o.UpdatedAt ?? o.CreatedAt) >= fromUtc.Value);
+        }
+
+        if (toUtc.HasValue)
+        {
+            query = query.Where(o => (o.PaidAt ?? o.UpdatedAt ?? o.CreatedAt) <= toUtc.Value);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(o => o.PaidAt ?? o.UpdatedAt ?? o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
 }
