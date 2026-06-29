@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -26,7 +25,7 @@ public class PaystackClient(
         PaystackInitializeRequest request,
         CancellationToken cancellationToken = default)
     {
-        EnsureConfigured();
+        EnsureSecretKeyConfigured();
 
         var payload = new
         {
@@ -69,7 +68,7 @@ public class PaystackClient(
         string reference,
         CancellationToken cancellationToken = default)
     {
-        EnsureConfigured();
+        EnsureSecretKeyConfigured();
 
         using var response = await httpClient.GetAsync($"transaction/verify/{Uri.EscapeDataString(reference)}", cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -94,18 +93,11 @@ public class PaystackClient(
             parsed.Message);
     }
 
-    private void EnsureConfigured()
+    private void EnsureSecretKeyConfigured()
     {
-        var secretKey = options.Value.SecretKey;
-        if (string.IsNullOrWhiteSpace(secretKey))
+        if (string.IsNullOrWhiteSpace(options.Value.SecretKey))
         {
             throw new InvalidOperationException("Paystack secret key is not configured.");
-        }
-
-        if (httpClient.DefaultRequestHeaders.Authorization == null)
-        {
-            httpClient.BaseAddress ??= new Uri("https://api.paystack.co/");
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
         }
     }
 

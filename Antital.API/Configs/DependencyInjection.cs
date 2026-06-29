@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Antital.Domain.Configuration;
 using Antital.Application.Features.Investments;
 using Antital.Application.Features.Investments.Checkout;
@@ -120,9 +121,15 @@ public static class DependencyInjection
         services.AddScoped<PaystackSignatureValidator>();
         services.AddScoped<InvestmentOfferingAccess>();
 
-        services.AddHttpClient<IPaystackClient, PaystackClient>(client =>
+        services.AddHttpClient<IPaystackClient, PaystackClient>((serviceProvider, client) =>
         {
             client.BaseAddress = new Uri("https://api.paystack.co/");
+
+            var secretKey = serviceProvider.GetRequiredService<IOptions<PaystackSettings>>().Value.SecretKey;
+            if (!string.IsNullOrWhiteSpace(secretKey))
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+            }
         });
 
         return services;
