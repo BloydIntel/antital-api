@@ -4,6 +4,11 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile(
+    $"appsettings.{builder.Environment.EnvironmentName}.local.json",
+    optional: true,
+    reloadOnChange: true);
+
 builder.Services.BaseRegister(builder.Configuration, builder.Host).Register(builder.Configuration);
 builder.Host.UseSerilog();
 

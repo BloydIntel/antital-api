@@ -32,6 +32,8 @@ public class AntitalDBContext(
     public DbSet<InvestorHolding> InvestorHoldings { get; set; }
     public DbSet<InvestorWatchlistItem> InvestorWatchlistItems { get; set; }
     public DbSet<InvestorPortfolioPerformancePoint> InvestorPortfolioPerformancePoints { get; set; }
+    public DbSet<InvestmentOrder> InvestmentOrders { get; set; }
+    public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -151,6 +153,42 @@ public class AntitalDBContext(
 
         ConfigureInvestorDashboard(modelBuilder);
         ConfigureInvestmentOfferings(modelBuilder);
+        ConfigureInvestmentCheckout(modelBuilder);
+    }
+
+    private static void ConfigureInvestmentCheckout(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<InvestmentOrder>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Offering).WithMany().HasForeignKey(e => e.OfferingId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.InvestorHolding).WithMany().HasForeignKey(e => e.InvestorHoldingId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Property(e => e.Currency).HasMaxLength(10).IsRequired();
+            entity.Property(e => e.PaystackReference).HasMaxLength(100);
+
+            entity.HasIndex(e => e.PaystackReference)
+                .IsUnique()
+                .HasFilter("\"PaystackReference\" IS NOT NULL AND \"IsDeleted\" = false");
+
+            entity.HasIndex(e => new { e.UserId, e.OfferingId, e.Status })
+                .HasFilter("\"Status\" = 0 AND \"IsDeleted\" = false");
+        });
+
+        modelBuilder.Entity<PaymentTransaction>(entity =>
+        {
+            entity.HasOne(e => e.Order).WithMany(o => o.PaymentTransactions).HasForeignKey(e => e.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(e => e.Provider).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Reference).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Channel).HasMaxLength(50);
+
+            entity.HasIndex(e => e.Reference)
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = false");
+        });
     }
 
     private static void ConfigureInvestorDashboard(ModelBuilder modelBuilder)

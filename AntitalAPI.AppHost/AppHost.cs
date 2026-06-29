@@ -18,4 +18,9 @@ var ui = builder.AddJavaScriptApp("ui", "../../../React/antital-ui")
     .WithReference(api)
     .WaitFor(api);
 
+// Paystack redirect after payment must match the Aspire UI port (e.g. http://localhost:62388/...).
+api.WithEnvironment(
+    "Paystack__CallbackUrl",
+    ReferenceExpression.Create($"{ui.GetEndpoint("http")}/marketplace/invest/callback"));
+
 builder.Build().Run();

@@ -4,9 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Antital.API;
+using Antital.Domain.Interfaces;
 using Antital.Infrastructure;
+using Antital.Infrastructure.Integrations.Paystack;
+using Antital.Test.Fakes;
+using Antital.Test.Helpers;
 using BuildingBlocks.Infrastructure.Implementations;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 
@@ -14,6 +19,8 @@ namespace Antital.Test.Integration;
 
 public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Program> where TProgram : class
 {
+    public FakePaystackClient FakePaystackClient { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // Set environment FIRST before configuration is loaded
@@ -39,7 +46,11 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
                 { "ElasticSearch:Uri", null! }, // Null to skip Elasticsearch sink
                 { "Jwt:Key", "BehzadDaraSecurityKey@#@BehzadDaraSecurityKey" }, // JWT key for testing
                 { "Jwt:Issuer", "http://localhost:28747/" },
-                { "Jwt:Audience", "http://localhost:28747/" }
+                { "Jwt:Audience", "http://localhost:28747/" },
+                { "Paystack:SecretKey", PaystackTestHelper.TestSecretKey },
+                { "Paystack:PublicKey", "pk_test_public_key" },
+                { "Paystack:WebhookSecret", PaystackTestHelper.TestSecretKey },
+                { "Paystack:CallbackUrl", "http://localhost:3000/marketplace/invest/callback" },
             });
         });
 
@@ -79,6 +90,10 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
             });
 
             services.AddScoped<DBContext>(provider => provider.GetService<AntitalDBContext>()!);
+
+            services.RemoveAll(typeof(IPaystackClient));
+            services.RemoveAll(typeof(PaystackClient));
+            services.AddSingleton<IPaystackClient>(FakePaystackClient);
         });
         
         // Workaround: Configure Kestrel to use a real server instead of TestServer
