@@ -69,6 +69,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IInvestorDashboardRepository), typeof(InvestorDashboardRepository));
         services.AddScoped(typeof(IInvestmentOrderRepository), typeof(InvestmentOrderRepository));
         services.AddScoped(typeof(IInvestorPaymentMethodRepository), typeof(InvestorPaymentMethodRepository));
+        services.AddScoped(typeof(IInvestorWatchlistRepository), typeof(InvestorWatchlistRepository));
 
         return services;
     }
