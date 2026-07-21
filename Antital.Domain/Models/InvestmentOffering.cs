@@ -14,6 +14,8 @@ public class InvestmentOffering : TrackableEntity
     public OfferingStatus Status { get; set; }
     public DateTime? PublishedAt { get; set; }
 
+    public int? OwnerUserId { get; set; }
+    public User? Owner { get; set; }
     public OfferingFunding? Funding { get; set; }
     public DealTerms? DealTerms { get; set; }
     public OfferingCorporateProfile? CorporateProfile { get; set; }

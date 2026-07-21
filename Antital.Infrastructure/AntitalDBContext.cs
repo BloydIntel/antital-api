@@ -242,6 +242,14 @@ public class AntitalDBContext(
             entity.Property(e => e.Category).HasMaxLength(100).IsRequired();
             entity.Property(e => e.Tagline).HasMaxLength(500).IsRequired();
             entity.Property(e => e.CoverImageUrl).HasMaxLength(500).IsRequired();
+
+            entity.HasOne(e => e.Owner)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.OwnerUserId)
+                .HasFilter("\"OwnerUserId\" IS NOT NULL AND \"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<OfferingFunding>(entity =>
