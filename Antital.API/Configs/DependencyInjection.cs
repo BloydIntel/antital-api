@@ -6,6 +6,7 @@ using Antital.Application.Features.Investments.ConfirmInvestmentOrder;
 using Antital.Application.Features.Investments.ProcessPaystackWebhook;
 using Antital.Infrastructure.Integrations.Paystack;
 using Antital.Application.Features.Investors;
+using Antital.Application.Features.Fundraisers;
 using Antital.Application.Features.Onboarding;
 using Antital.Application.Services;
 using Antital.Domain.Interfaces;
@@ -67,6 +68,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IUserKycRepository), typeof(UserKycRepository));
         services.AddScoped(typeof(IInvestmentOfferingRepository), typeof(InvestmentOfferingRepository));
         services.AddScoped(typeof(IInvestorDashboardRepository), typeof(InvestorDashboardRepository));
+        services.AddScoped(typeof(IFundraiserDashboardRepository), typeof(FundraiserDashboardRepository));
         services.AddScoped(typeof(IInvestmentOrderRepository), typeof(InvestmentOrderRepository));
         services.AddScoped(typeof(IInvestorPaymentMethodRepository), typeof(InvestorPaymentMethodRepository));
         services.AddScoped(typeof(IInvestorWatchlistRepository), typeof(InvestorWatchlistRepository));
@@ -117,6 +119,7 @@ public static class DependencyInjection
         services.AddScoped<IKycVerificationService, PassThroughKycVerificationService>();
         services.AddScoped<IOnboardingUserAccess, OnboardingUserAccess>();
         services.AddScoped<IInvestorUserAccess, InvestorUserAccess>();
+        services.AddScoped<IFundraiserUserAccess, FundraiserUserAccess>();
         services.AddScoped<IInvestmentCheckoutAccess, InvestmentCheckoutAccess>();
         services.AddScoped<IInvestmentPaymentConfirmationService, InvestmentPaymentConfirmationService>();
         services.AddScoped<IConfirmInvestmentOrderService, ConfirmInvestmentOrderService>();
