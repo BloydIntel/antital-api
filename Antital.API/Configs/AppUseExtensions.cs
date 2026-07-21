@@ -117,6 +117,7 @@ public static class AppUseExtensions
                 if (!env.IsEnvironment("Testing"))
                 {
                     InvestmentOfferingSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
+                    FundraiserOfferingOwnershipSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     InvestorDashboardSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     WalletTransactionSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                 }
