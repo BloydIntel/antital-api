@@ -1,4 +1,8 @@
 using Antital.Application.DTOs.Fundraisers;
+using Antital.Application.Features.Fundraisers.CampaignUpdates.CreateFundraiserCampaignUpdate;
+using Antital.Application.Features.Fundraisers.CampaignUpdates.ListFundraiserCampaignUpdates;
+using Antital.Application.Features.Fundraisers.CampaignUpdates.UpdateFundraiserCampaignUpdate;
+using Antital.Application.Features.Fundraisers.GetFundraiserCampaign;
 using Antital.Application.Features.Fundraisers.GetFundraiserDashboard;
 using BuildingBlocks.API.Controllers;
 using BuildingBlocks.Application.Features;
@@ -28,6 +32,78 @@ public class FundraisersController(IMediator mediator) : BaseController
         CancellationToken cancellationToken = default)
     {
         var result = await mediator.Send(new GetFundraiserDashboardQuery(period), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/campaign")]
+    [SwaggerOperation(
+        "Get Fundraiser Campaign",
+        "Returns the authenticated fundraiser's primary owned offering context for the campaigns page.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserCampaignResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> GetCampaign(CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(new GetFundraiserCampaignQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/campaign/updates")]
+    [SwaggerOperation(
+        "List Campaign Updates",
+        "Returns draft and/or published updates for the authenticated fundraiser's primary owned campaign.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserCampaignUpdatesResponse>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid status", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> ListCampaignUpdates(
+        [FromQuery] string status = "all",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(
+            new ListFundraiserCampaignUpdatesQuery(status, page, pageSize),
+            cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPost("me/campaign/updates")]
+    [SwaggerOperation(
+        "Create Campaign Update",
+        "Creates a draft or published update for the authenticated fundraiser's primary owned campaign.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserCampaignUpdateDto>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Validation error", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "No owned campaign", typeof(void))]
+    public async Task<IActionResult> CreateCampaignUpdate(
+        [FromBody] CreateFundraiserCampaignUpdateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(
+            new CreateFundraiserCampaignUpdateCommand(request.Title, request.Body, request.Publish),
+            cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPatch("me/campaign/updates/{updateId:int}")]
+    [SwaggerOperation(
+        "Update Campaign Update",
+        "Edits title/body and/or publishes a draft owned by the authenticated fundraiser.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserCampaignUpdateDto>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Validation error", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "Update or campaign not found", typeof(void))]
+    public async Task<IActionResult> UpdateCampaignUpdate(
+        int updateId,
+        [FromBody] UpdateFundraiserCampaignUpdateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(
+            new UpdateFundraiserCampaignUpdateCommand(updateId, request.Title, request.Body, request.Publish),
+            cancellationToken);
         return ApiResult(result);
     }
 }
