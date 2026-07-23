@@ -358,6 +358,8 @@ public class AntitalDBContext(
                 .OnDelete(DeleteBehavior.Cascade);
             entity.Property(e => e.Title).HasMaxLength(300).IsRequired();
             entity.Property(e => e.Body).HasMaxLength(8000).IsRequired();
+            entity.HasIndex(e => new { e.OfferingId, e.Status, e.PublishedAt })
+                .HasFilter("\"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<Testimonial>(entity =>

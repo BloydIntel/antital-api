@@ -1,3 +1,4 @@
+using Antital.Domain.Enums;
 using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
 using Microsoft.EntityFrameworkCore;
@@ -53,7 +54,10 @@ public class InvestorWatchlistRepository(AntitalDBContext context) : IInvestorWa
 
         var updates = await context.OfferingUpdates
             .AsNoTracking()
-            .Where(u => offeringIds.Contains(u.OfferingId) && !u.IsDeleted)
+            .Where(u =>
+                offeringIds.Contains(u.OfferingId)
+                && !u.IsDeleted
+                && u.Status == OfferingUpdateStatus.Published)
             .OrderByDescending(u => u.PublishedAt)
             .ToListAsync(cancellationToken);
 

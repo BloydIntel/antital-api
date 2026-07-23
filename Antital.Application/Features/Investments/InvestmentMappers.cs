@@ -121,7 +121,7 @@ internal static class InvestmentMappers
         new(asset.Id, asset.AssetType.ToString(), asset.Url, asset.SortOrder);
 
     public static OfferingUpdateDto ToUpdateDto(OfferingUpdate update) =>
-        new(update.Id, update.PublishedAt, update.Title, update.Body, update.LikeCount);
+        new(update.Id, update.PublishedAt ?? DateTime.UtcNow, update.Title, update.Body, update.LikeCount);
 
     public static TestimonialDto ToTestimonialDto(Testimonial testimonial) =>
         new(

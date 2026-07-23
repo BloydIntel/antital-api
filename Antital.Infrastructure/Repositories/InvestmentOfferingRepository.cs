@@ -162,7 +162,10 @@ public class InvestmentOfferingRepository(
     {
         var query = _dbContext.Set<OfferingUpdate>()
             .AsNoTracking()
-            .Where(u => u.OfferingId == offeringId && !u.IsDeleted);
+            .Where(u =>
+                u.OfferingId == offeringId
+                && !u.IsDeleted
+                && u.Status == OfferingUpdateStatus.Published);
 
         var totalCount = await query.CountAsync(cancellationToken);
 

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
 using Antital.Application.DTOs.Fundraisers;
+using Antital.Application.DTOs.Investments;
 using Antital.Domain.Enums;
 using Antital.Domain.Models;
 using Antital.Infrastructure;
@@ -129,6 +130,108 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
         result.Value.Milestones.First(m => m.Key == "funded_50").Status.Should().Be("completed");
     }
 
+    [Fact]
+    public async Task ListCampaignUpdates_WithoutAuth_Returns401()
+    {
+        var response = await _client.GetAsync("/api/fundraisers/me/campaign/updates");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CreateAndListCampaignUpdates_DraftThenPublish_Works()
+    {
+        var fundraiser = SeedUser("fundraiser-updates@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+        await SeedOwnedOfferingAsync(fundraiser.Id, "updates-campaign");
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+
+        var createResponse = await authClient.PostAsJsonAsync(
+            "/api/fundraisers/me/campaign/updates",
+            new CreateFundraiserCampaignUpdateRequest("Draft title", "Draft body", Publish: false));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<Result<FundraiserCampaignUpdateDto>>(JsonOptions);
+        created!.IsSuccess.Should().BeTrue();
+        created.Value!.Status.Should().Be("draft");
+        created.Value.PublishedAt.Should().BeNull();
+
+        var listDrafts = await authClient.GetAsync("/api/fundraisers/me/campaign/updates?status=draft");
+        var drafts = await listDrafts.Content.ReadFromJsonAsync<Result<FundraiserCampaignUpdatesResponse>>(JsonOptions);
+        drafts!.Value!.Items.Should().ContainSingle(i => i.Id == created.Value.Id);
+
+        var publishResponse = await authClient.PatchAsJsonAsync(
+            $"/api/fundraisers/me/campaign/updates/{created.Value.Id}",
+            new UpdateFundraiserCampaignUpdateRequest(null, null, Publish: true));
+        publishResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var published = await publishResponse.Content.ReadFromJsonAsync<Result<FundraiserCampaignUpdateDto>>(JsonOptions);
+        published!.Value!.Status.Should().Be("published");
+        published.Value.PublishedAt.Should().NotBeNull();
+
+        var publicUpdates = await _client.GetAsync("/api/investments/updates-campaign/updates");
+        publicUpdates.StatusCode.Should().Be(HttpStatusCode.OK);
+        var publicResult = await publicUpdates.Content.ReadFromJsonAsync<Result<OfferingUpdatesResponse>>(JsonOptions);
+        publicResult!.Value!.Items.Should().ContainSingle(i => i.Title == "Draft title");
+    }
+
+    [Fact]
+    public async Task CreateCampaignUpdate_NoOwnedOffering_Returns404()
+    {
+        var fundraiser = SeedUser("fundraiser-no-offer@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.PostAsJsonAsync(
+            "/api/fundraisers/me/campaign/updates",
+            new CreateFundraiserCampaignUpdateRequest("Title", "Body", Publish: true));
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetCampaign_WithoutAuth_Returns401()
+    {
+        var response = await _client.GetAsync("/api/fundraisers/me/campaign");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetCampaign_NoOwnedOffering_ReturnsNullFields()
+    {
+        var fundraiser = SeedUser("fundraiser-campaign-empty@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/campaign");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserCampaignResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.OfferingId.Should().BeNull();
+        result.Value.OfferingSlug.Should().BeNull();
+        result.Value.PublicPath.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetCampaign_OwnedOffering_ReturnsContext()
+    {
+        var fundraiser = SeedUser("fundraiser-campaign-ctx@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+        var offering = await SeedOwnedOfferingAsync(fundraiser.Id, "campaign-context");
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/campaign");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserCampaignResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.OfferingId.Should().Be(offering.Id);
+        result.Value.OfferingSlug.Should().Be("campaign-context");
+        result.Value.OfferingName.Should().Be("Fundraiser Campaign");
+        result.Value.Status.Should().Be("published");
+        result.Value.PublicPath.Should().Be("/explore/campaign-context");
+    }
+
     private User SeedUser(string email, UserTypeEnum userType)
     {
         var user = new User
@@ -250,6 +353,7 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
 
     private void CleanupDatabase()
     {
+        _context.OfferingUpdates.RemoveRange(_context.OfferingUpdates);
         _context.InvestorHoldings.RemoveRange(_context.InvestorHoldings);
         _context.InvestmentOfferings.RemoveRange(_context.InvestmentOfferings.IgnoreQueryFilters());
         _context.Users.RemoveRange(_context.Users);
