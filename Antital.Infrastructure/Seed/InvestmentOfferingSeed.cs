@@ -388,6 +388,7 @@ public static class InvestmentOfferingSeed
             var entity = new OfferingUpdate
             {
                 OfferingId = offeringId,
+                Status = OfferingUpdateStatus.Published,
                 PublishedAt = u.At,
                 Title = u.Title,
                 Body = u.Body,

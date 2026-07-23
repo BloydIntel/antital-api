@@ -283,6 +283,7 @@ public class WatchlistControllerTests : IClassFixture<CustomWebApplicationFactor
         var update = new OfferingUpdate
         {
             OfferingId = offeringId,
+            Status = OfferingUpdateStatus.Published,
             PublishedAt = DateTime.UtcNow.AddHours(-4),
             Title = title,
             Body = "Details",
