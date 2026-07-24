@@ -52,6 +52,8 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
                 { "Paystack:PublicKey", "pk_test_public_key" },
                 { "Paystack:WebhookSecret", PaystackTestHelper.TestSecretKey },
                 { "Paystack:CallbackUrl", "http://localhost:3000/marketplace/invest/callback" },
+                { "Paystack:ApplicationFeeCallbackUrl", "http://localhost:3000/onboarding/fundraiser/application-fee/callback" },
+                { "Paystack:ApplicationFeeAmountNgn", "25750" },
                 { "Cloudinary:CloudName", "test-cloud" },
                 { "Cloudinary:ApiKey", "test-key" },
                 { "Cloudinary:ApiSecret", "test-secret" },

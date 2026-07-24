@@ -1,10 +1,12 @@
 using System.Text.Json;
+using Antital.Application.Features.Onboarding.ApplicationFeePayment;
 using BuildingBlocks.Application.Features;
 
 namespace Antital.Application.Features.Investments.ProcessPaystackWebhook;
 
 public class ProcessPaystackWebhookCommandHandler(
-    IInvestmentPaymentConfirmationService paymentConfirmationService
+    IInvestmentPaymentConfirmationService paymentConfirmationService,
+    IApplicationFeePaymentConfirmationService applicationFeePaymentConfirmationService
 ) : ICommandQueryHandler<ProcessPaystackWebhookCommand, bool>
 {
     public async Task<Result<bool>> Handle(ProcessPaystackWebhookCommand request, CancellationToken cancellationToken)
@@ -36,10 +38,7 @@ public class ProcessPaystackWebhookCommandHandler(
         var handled = eventName switch
         {
             "charge.success" => await HandleSuccessAsync(data, reference, request.RawBody, cancellationToken),
-            "charge.failed" => await paymentConfirmationService.TryMarkFailedChargeAsync(
-                reference,
-                request.RawBody,
-                cancellationToken),
+            "charge.failed" => await HandleFailedAsync(reference, request.RawBody, cancellationToken),
             _ => false,
         };
 
@@ -70,10 +69,36 @@ public class ProcessPaystackWebhookCommandHandler(
             ? channelElement.GetString()
             : null;
 
-        return await paymentConfirmationService.TryConfirmSuccessfulChargeAsync(
+        if (await paymentConfirmationService.TryConfirmSuccessfulChargeAsync(
+                reference,
+                amountKobo,
+                channel,
+                rawPayload,
+                cancellationToken))
+        {
+            return true;
+        }
+
+        return await applicationFeePaymentConfirmationService.TryConfirmSuccessfulChargeAsync(
             reference,
             amountKobo,
             channel,
+            rawPayload,
+            cancellationToken);
+    }
+
+    private async Task<bool> HandleFailedAsync(
+        string reference,
+        string rawPayload,
+        CancellationToken cancellationToken)
+    {
+        if (await paymentConfirmationService.TryMarkFailedChargeAsync(reference, rawPayload, cancellationToken))
+        {
+            return true;
+        }
+
+        return await applicationFeePaymentConfirmationService.TryMarkFailedChargeAsync(
+            reference,
             rawPayload,
             cancellationToken);
     }

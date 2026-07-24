@@ -29,6 +29,9 @@ public class UploadFileCommandHandler(
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        // Fundraiser onboarding business docs accept PowerPoint.
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     };
 
     public async Task<Result<FileUploadDto>> Handle(
@@ -81,7 +84,7 @@ public class UploadFileCommandHandler(
                 {
                     ["file"] =
                     [
-                        "Allowed types: PDF, images (jpeg/png/webp/gif), Word, Excel, CSV."
+                        "Allowed types: PDF, images (jpeg/png/webp/gif), Word, Excel, CSV, PowerPoint."
                     ]
                 });
         }

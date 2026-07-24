@@ -298,6 +298,17 @@ public class SaveOnboardingCommandHandler(
         var isNew = profile == null;
         profile ??= new UserInvestmentProfile { UserId = userId };
 
+        // Application fee paid flag is set only by Paystack verify/webhook — reject client-trusted paid claims.
+        if (payload.ApplicationFeePaid && profile.FundRaiserApplicationFeePaid != true)
+        {
+            throw new BadRequestException(
+                "Application fee must be paid via Paystack before saving payment progress.",
+                new Dictionary<string, string[]>
+                {
+                    ["FundRaiserPaymentPayload"] = ["Complete Paystack application-fee checkout first."],
+                });
+        }
+
         profile.FundRaiserPaymentMethod = payload.PaymentMethod;
         profile.FundRaiserPaymentReference = payload.PaymentReference;
         profile.FundRaiserPaymentStatus = payload.PaymentStatus;
