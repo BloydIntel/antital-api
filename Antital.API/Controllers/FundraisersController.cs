@@ -4,6 +4,11 @@ using Antital.Application.Features.Fundraisers.CampaignUpdates.ListFundraiserCam
 using Antital.Application.Features.Fundraisers.CampaignUpdates.UpdateFundraiserCampaignUpdate;
 using Antital.Application.Features.Fundraisers.GetFundraiserCampaign;
 using Antital.Application.Features.Fundraisers.GetFundraiserDashboard;
+using Antital.Application.Features.Fundraisers.Investors.GetFundraiserInvestorAnalytics;
+using Antital.Application.Features.Fundraisers.Investors.GetFundraiserQiiParticipation;
+using Antital.Application.Features.Fundraisers.Investors.ListFundraiserInvestorMessages;
+using Antital.Application.Features.Fundraisers.Investors.ReplyFundraiserInvestorMessage;
+using Antital.Application.Features.Fundraisers.Investors.UpdateFundraiserInvestorMessage;
 using BuildingBlocks.API.Controllers;
 using BuildingBlocks.Application.Features;
 using MediatR;
@@ -104,6 +109,92 @@ public class FundraisersController(IMediator mediator) : BaseController
         var result = await mediator.Send(
             new UpdateFundraiserCampaignUpdateCommand(updateId, request.Title, request.Body, request.Publish),
             cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/investors/qii")]
+    [SwaggerOperation(
+        "List QII Participation",
+        "Returns Qualified Institutional Investor commitments for the fundraiser's primary owned offering.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserQiiParticipationResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> GetQiiParticipation(CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(new GetFundraiserQiiParticipationQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/investors/messages")]
+    [SwaggerOperation(
+        "List Investor Messages",
+        "Returns investor questions for the authenticated fundraiser's primary owned offering.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserInvestorMessagesResponse>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid status", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> ListInvestorMessages(
+        [FromQuery] string status = "all",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(
+            new ListFundraiserInvestorMessagesQuery(status, page, pageSize),
+            cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPost("me/investors/messages/{messageId:int}/reply")]
+    [SwaggerOperation(
+        "Reply To Investor Message",
+        "Posts a reply to an investor question on the fundraiser's owned offering.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserInvestorMessageDto>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Validation error", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "Message or campaign not found", typeof(void))]
+    public async Task<IActionResult> ReplyInvestorMessage(
+        int messageId,
+        [FromBody] ReplyFundraiserInvestorMessageRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(
+            new ReplyFundraiserInvestorMessageCommand(messageId, request.Reply),
+            cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPatch("me/investors/messages/{messageId:int}")]
+    [SwaggerOperation(
+        "Update Investor Message",
+        "Updates visibility and/or reply text for an investor message on the owned offering.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserInvestorMessageDto>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Validation error", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "Message or campaign not found", typeof(void))]
+    public async Task<IActionResult> UpdateInvestorMessage(
+        int messageId,
+        [FromBody] UpdateFundraiserInvestorMessageRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(
+            new UpdateFundraiserInvestorMessageCommand(messageId, request.Visibility, request.Reply),
+            cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/investors/analytics")]
+    [SwaggerOperation(
+        "Get Investor Inbox Analytics",
+        "Returns response rate and average response time for the fundraiser's primary owned offering inbox.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserInvestorAnalyticsResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> GetInvestorAnalytics(CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(new GetFundraiserInvestorAnalyticsQuery(), cancellationToken);
         return ApiResult(result);
     }
 }

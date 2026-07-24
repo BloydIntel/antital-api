@@ -120,6 +120,8 @@ public static class AppUseExtensions
                     FundraiserOfferingOwnershipSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     InvestorDashboardSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     WalletTransactionSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
+                    FundraiserInvestorMessagesSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
+                    FundraiserQiiParticipationSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                 }
             }
             catch (Exception ex)
