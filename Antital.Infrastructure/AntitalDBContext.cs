@@ -27,6 +27,7 @@ public class AntitalDBContext(
     public DbSet<MediaAsset> MediaAssets { get; set; }
     public DbSet<OfferingUpdate> OfferingUpdates { get; set; }
     public DbSet<OfferingInvestorMessage> OfferingInvestorMessages { get; set; }
+    public DbSet<OfferingEngagementDaily> OfferingEngagementDailies { get; set; }
     public DbSet<Testimonial> Testimonials { get; set; }
     public DbSet<OfferingCorporateProfile> OfferingCorporateProfiles { get; set; }
     public DbSet<InvestorWallet> InvestorWallets { get; set; }
@@ -374,6 +375,15 @@ public class AntitalDBContext(
             entity.HasIndex(e => new { e.OfferingId, e.AskedAt })
                 .HasFilter("\"IsDeleted\" = false");
             entity.HasIndex(e => new { e.OfferingId, e.RepliedAt })
+                .HasFilter("\"IsDeleted\" = false");
+        });
+
+        modelBuilder.Entity<OfferingEngagementDaily>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.EngagementDailies).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.OfferingId, e.Date })
+                .IsUnique()
                 .HasFilter("\"IsDeleted\" = false");
         });
 
