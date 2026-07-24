@@ -600,7 +600,14 @@ public class SaveOnboardingCommandHandlerTests
         _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, fundRaiserUser));
 
         var existingOnboarding = new UserOnboarding { UserId = 1, CurrentStep = OnboardingStep.Review, Status = OnboardingStatus.Draft };
-        var existingProfile = new UserInvestmentProfile { UserId = 1 };
+        var existingProfile = new UserInvestmentProfile
+        {
+            UserId = 1,
+            FundRaiserApplicationFeePaid = true,
+            FundRaiserPaymentReference = "ANT-FEE-1-abc",
+            FundRaiserPaymentStatus = "Paid",
+            FundRaiserPaymentMethod = "card",
+        };
         _onboardingRepoMock.Setup(x => x.GetOrCreateForUserAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingOnboarding);
         _profileRepoMock.Setup(x => x.GetByUserIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingProfile);
 

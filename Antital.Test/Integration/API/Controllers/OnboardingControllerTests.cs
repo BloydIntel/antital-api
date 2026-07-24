@@ -449,6 +449,14 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
             CurrentStep = OnboardingStep.Review,
             Status = OnboardingStatus.Draft
         });
+        _context.UserInvestmentProfiles.Add(new UserInvestmentProfile
+        {
+            UserId = user.Id,
+            FundRaiserApplicationFeePaid = true,
+            FundRaiserPaymentMethod = "card",
+            FundRaiserPaymentReference = "ANT-FEE-seed",
+            FundRaiserPaymentStatus = "Paid",
+        });
         await _context.SaveChangesAsync();
 
         using var authClient = CreateAuthorizedClient(userId: user.Id);
