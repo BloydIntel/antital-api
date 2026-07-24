@@ -37,6 +37,7 @@ public class AntitalDBContext(
     public DbSet<InvestmentOrder> InvestmentOrders { get; set; }
     public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
     public DbSet<InvestorPaymentMethod> InvestorPaymentMethods { get; set; }
+    public DbSet<FundraiserNotificationPreferences> FundraiserNotificationPreferences { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -152,6 +153,13 @@ public class AntitalDBContext(
         {
             entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.UserId).IsUnique();
+        });
+
+        // FundraiserNotificationPreferences: one per fundraiser user
+        modelBuilder.Entity<FundraiserNotificationPreferences>(entity =>
+        {
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.UserId).IsUnique().HasFilter("\"IsDeleted\" = false");
         });
 
         ConfigureInvestorDashboard(modelBuilder);
