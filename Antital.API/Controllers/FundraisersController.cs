@@ -2,6 +2,8 @@ using Antital.Application.DTOs.Fundraisers;
 using Antital.Application.Features.Fundraisers.CampaignUpdates.CreateFundraiserCampaignUpdate;
 using Antital.Application.Features.Fundraisers.CampaignUpdates.ListFundraiserCampaignUpdates;
 using Antital.Application.Features.Fundraisers.CampaignUpdates.UpdateFundraiserCampaignUpdate;
+using Antital.Application.Features.Fundraisers.Documents.ListFundraiserDocuments;
+using Antital.Application.Features.Fundraisers.Documents.UploadFundraiserDocument;
 using Antital.Application.Features.Fundraisers.GetFundraiserAnalytics;
 using Antital.Application.Features.Fundraisers.GetFundraiserCampaign;
 using Antital.Application.Features.Fundraisers.GetFundraiserDashboard;
@@ -10,7 +12,9 @@ using Antital.Application.Features.Fundraisers.Investors.GetFundraiserQiiPartici
 using Antital.Application.Features.Fundraisers.Investors.ListFundraiserInvestorMessages;
 using Antital.Application.Features.Fundraisers.Investors.ReplyFundraiserInvestorMessage;
 using Antital.Application.Features.Fundraisers.Investors.UpdateFundraiserInvestorMessage;
+using Antital.Domain.Interfaces;
 using BuildingBlocks.API.Controllers;
+using BuildingBlocks.Application.Exceptions;
 using BuildingBlocks.Application.Features;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -212,6 +216,57 @@ public class FundraisersController(IMediator mediator) : BaseController
     public async Task<IActionResult> GetInvestorAnalytics(CancellationToken cancellationToken = default)
     {
         var result = await mediator.Send(new GetFundraiserInvestorAnalyticsQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/documents")]
+    [SwaggerOperation(
+        "List Fundraiser Documents",
+        "Returns offering documents for the authenticated fundraiser's primary owned campaign.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserDocumentsResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> ListDocuments(CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(new ListFundraiserDocumentsQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPost("me/documents")]
+    [RequestSizeLimit(FileUploadLimits.MaxFileBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = FileUploadLimits.MaxFileBytes)]
+    [Consumes("multipart/form-data")]
+    [SwaggerOperation(
+        "Upload Fundraiser Document",
+        "Uploads a document via Cloudinary and attaches it to the primary owned offering as Pending Approval.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserDocumentDto>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Validation error", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "No owned campaign", typeof(void))]
+    public async Task<IActionResult> UploadDocument(
+        IFormFile? file,
+        [FromForm] string? title,
+        [FromForm] string category = "Core",
+        CancellationToken cancellationToken = default)
+    {
+        if (file is null || file.Length <= 0)
+        {
+            throw new BadRequestException(
+                "Invalid file.",
+                new Dictionary<string, string[]> { ["file"] = ["File is required."] });
+        }
+
+        await using var stream = file.OpenReadStream();
+        var result = await mediator.Send(
+            new UploadFundraiserDocumentCommand(
+                stream,
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                title ?? string.Empty,
+                category),
+            cancellationToken);
         return ApiResult(result);
     }
 }

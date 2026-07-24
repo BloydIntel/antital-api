@@ -344,7 +344,11 @@ public class AntitalDBContext(
             entity.HasOne(e => e.Offering).WithMany(o => o.Documents).HasForeignKey(e => e.OfferingId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.Property(e => e.Title).HasMaxLength(300).IsRequired();
-            entity.Property(e => e.FileUrl).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.FileUrl).HasMaxLength(1000).IsRequired();
+            entity.Property(e => e.ContentType).HasMaxLength(150).IsRequired();
+            entity.Property(e => e.CloudinaryPublicId).HasMaxLength(300);
+            entity.HasIndex(e => new { e.OfferingId, e.Category })
+                .HasFilter("\"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<MediaAsset>(entity =>
