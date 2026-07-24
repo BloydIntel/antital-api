@@ -26,6 +26,7 @@ public class AntitalDBContext(
     public DbSet<OfferingDocument> OfferingDocuments { get; set; }
     public DbSet<MediaAsset> MediaAssets { get; set; }
     public DbSet<OfferingUpdate> OfferingUpdates { get; set; }
+    public DbSet<OfferingInvestorMessage> OfferingInvestorMessages { get; set; }
     public DbSet<Testimonial> Testimonials { get; set; }
     public DbSet<OfferingCorporateProfile> OfferingCorporateProfiles { get; set; }
     public DbSet<InvestorWallet> InvestorWallets { get; set; }
@@ -359,6 +360,20 @@ public class AntitalDBContext(
             entity.Property(e => e.Title).HasMaxLength(300).IsRequired();
             entity.Property(e => e.Body).HasMaxLength(8000).IsRequired();
             entity.HasIndex(e => new { e.OfferingId, e.Status, e.PublishedAt })
+                .HasFilter("\"IsDeleted\" = false");
+        });
+
+        modelBuilder.Entity<OfferingInvestorMessage>(entity =>
+        {
+            entity.HasOne(e => e.Offering).WithMany(o => o.InvestorMessages).HasForeignKey(e => e.OfferingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.AskerUser).WithMany().HasForeignKey(e => e.AskerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.Property(e => e.Question).HasMaxLength(4000).IsRequired();
+            entity.Property(e => e.Reply).HasMaxLength(4000);
+            entity.HasIndex(e => new { e.OfferingId, e.AskedAt })
+                .HasFilter("\"IsDeleted\" = false");
+            entity.HasIndex(e => new { e.OfferingId, e.RepliedAt })
                 .HasFilter("\"IsDeleted\" = false");
         });
 

@@ -232,6 +232,187 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
         result.Value.PublicPath.Should().Be("/explore/campaign-context");
     }
 
+    [Fact]
+    public async Task GetQiiParticipation_WithoutAuth_Returns401()
+    {
+        var response = await _client.GetAsync("/api/fundraisers/me/investors/qii");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetQiiParticipation_ConfirmedAndPending_ReturnsRows()
+    {
+        var fundraiser = SeedUser("fundraiser-qii@example.com", UserTypeEnum.FundRaiser);
+        var confirmed = SeedUser("qii-confirmed@example.com", UserTypeEnum.CorporateInvestor);
+        var pending = SeedUser("qii-pending@example.com", UserTypeEnum.CorporateInvestor);
+        await _context.SaveChangesAsync();
+
+        var offering = await SeedOwnedOfferingAsync(fundraiser.Id, "qii-campaign");
+        await SeedQiiProfileAsync(confirmed.Id, "Stanbic IBTC Asset Mgmt", QiiInstitutionType.AssetManagementCompany);
+        await SeedQiiProfileAsync(pending.Id, "ARM Investment Managers", QiiInstitutionType.VentureCapitalOrPrivateEquityFund);
+
+        var holding = new InvestorHolding
+        {
+            UserId = confirmed.Id,
+            OfferingId = offering.Id,
+            InvestedAmount = 40_000_000m,
+            CurrentValue = 40_000_000m,
+            Returns = 0m,
+            UnitHolding = 400,
+            InvestedAt = DateTime.UtcNow.AddDays(-10),
+        };
+        holding.Created("TestUser");
+
+        var order = new InvestmentOrder
+        {
+            UserId = pending.Id,
+            OfferingId = offering.Id,
+            Units = 185,
+            SharePrice = 100_000m,
+            Subtotal = 18_500_000m,
+            PlatformFeePercent = 0m,
+            PlatformFee = 0m,
+            TotalAmount = 18_500_000m,
+            Currency = "NGN",
+            Status = InvestmentOrderStatus.PendingPayment,
+            ExpiresAt = DateTime.UtcNow.AddDays(1),
+        };
+        order.Created("TestUser");
+
+        _context.InvestorHoldings.Add(holding);
+        _context.InvestmentOrders.Add(order);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/investors/qii");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserQiiParticipationResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.OfferingId.Should().Be(offering.Id);
+        result.Value.Items.Should().HaveCount(2);
+        result.Value.Items.Should().Contain(i =>
+            i.Institution == "Stanbic IBTC Asset Mgmt"
+            && i.Type == "Asset Manager"
+            && i.CommitmentAmount == 40_000_000m
+            && i.Status == "confirmed");
+        result.Value.Items.Should().Contain(i =>
+            i.Institution == "ARM Investment Managers"
+            && i.Type == "Fund Manager"
+            && i.CommitmentAmount == 18_500_000m
+            && i.Status == "pending");
+    }
+
+    [Fact]
+    public async Task ListInvestorMessages_WithoutAuth_Returns401()
+    {
+        var response = await _client.GetAsync("/api/fundraisers/me/investors/messages");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ListInvestorMessages_NoOwnedOffering_ReturnsEmpty()
+    {
+        var fundraiser = SeedUser("fundraiser-inbox-empty@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/investors/messages");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserInvestorMessagesResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().BeEmpty();
+        result.Value.TotalCount.Should().Be(0);
+        result.Value.NewCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ReplyAndPatchInvestorMessage_UpdatesVisibilityAndAnalytics()
+    {
+        var fundraiser = SeedUser("fundraiser-inbox@example.com", UserTypeEnum.FundRaiser);
+        var asker = SeedUser("inbox-asker@example.com", UserTypeEnum.IndividualInvestor);
+        asker.FirstName = "Ahmed";
+        asker.LastName = "Lawal";
+        await _context.SaveChangesAsync();
+
+        var offering = await SeedOwnedOfferingAsync(fundraiser.Id, "inbox-campaign");
+        var message = new OfferingInvestorMessage
+        {
+            OfferingId = offering.Id,
+            AskerUserId = asker.Id,
+            Question = "What is the minimum investment?",
+            Visibility = OfferingInvestorMessageVisibility.Public,
+            AskedAt = DateTime.UtcNow.AddHours(-4),
+        };
+        message.Created("TestUser");
+        _context.OfferingInvestorMessages.Add(message);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+
+        var listBefore = await authClient.GetAsync("/api/fundraisers/me/investors/messages?status=unanswered");
+        var unanswered = await listBefore.Content.ReadFromJsonAsync<Result<FundraiserInvestorMessagesResponse>>(JsonOptions);
+        unanswered!.Value!.Items.Should().ContainSingle(i => i.Id == message.Id);
+        unanswered.Value.NewCount.Should().Be(1);
+        unanswered.Value.Items[0].Author.DisplayName.Should().Be("Ahmed Lawal");
+
+        var replyResponse = await authClient.PostAsJsonAsync(
+            $"/api/fundraisers/me/investors/messages/{message.Id}/reply",
+            new ReplyFundraiserInvestorMessageRequest("The minimum investment is 10M."));
+        replyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var replied = await replyResponse.Content.ReadFromJsonAsync<Result<FundraiserInvestorMessageDto>>(JsonOptions);
+        replied!.Value!.Reply.Should().Be("The minimum investment is 10M.");
+        replied.Value.Status.Should().Be("answered");
+        replied.Value.RepliedAt.Should().NotBeNull();
+
+        var patchResponse = await authClient.PatchAsJsonAsync(
+            $"/api/fundraisers/me/investors/messages/{message.Id}",
+            new UpdateFundraiserInvestorMessageRequest("private", null));
+        patchResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var patched = await patchResponse.Content.ReadFromJsonAsync<Result<FundraiserInvestorMessageDto>>(JsonOptions);
+        patched!.Value!.Visibility.Should().Be("private");
+
+        var analyticsResponse = await authClient.GetAsync("/api/fundraisers/me/investors/analytics");
+        analyticsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var analytics = await analyticsResponse.Content.ReadFromJsonAsync<Result<FundraiserInvestorAnalyticsResponse>>(JsonOptions);
+        analytics!.Value!.TotalMessages.Should().Be(1);
+        analytics.Value.AnsweredCount.Should().Be(1);
+        analytics.Value.UnansweredCount.Should().Be(0);
+        analytics.Value.ResponseRate.Should().Be(1m);
+        analytics.Value.AverageResponseTimeHours.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ReplyInvestorMessage_WrongOwner_Returns404()
+    {
+        var owner = SeedUser("fundraiser-inbox-owner@example.com", UserTypeEnum.FundRaiser);
+        var other = SeedUser("fundraiser-inbox-other@example.com", UserTypeEnum.FundRaiser);
+        var asker = SeedUser("inbox-asker-2@example.com", UserTypeEnum.IndividualInvestor);
+        await _context.SaveChangesAsync();
+
+        var offering = await SeedOwnedOfferingAsync(owner.Id, "inbox-owner-campaign");
+        var message = new OfferingInvestorMessage
+        {
+            OfferingId = offering.Id,
+            AskerUserId = asker.Id,
+            Question = "Private question",
+            Visibility = OfferingInvestorMessageVisibility.Private,
+            AskedAt = DateTime.UtcNow.AddHours(-1),
+        };
+        message.Created("TestUser");
+        _context.OfferingInvestorMessages.Add(message);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(other.Id, other.Email);
+        var response = await authClient.PostAsJsonAsync(
+            $"/api/fundraisers/me/investors/messages/{message.Id}/reply",
+            new ReplyFundraiserInvestorMessageRequest("Nope"));
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     private User SeedUser(string email, UserTypeEnum userType)
     {
         var user = new User
@@ -325,6 +506,22 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
         await _context.SaveChangesAsync();
     }
 
+    private async Task SeedQiiProfileAsync(int userId, string companyName, QiiInstitutionType institutionType)
+    {
+        var profile = new UserInvestmentProfile
+        {
+            UserId = userId,
+            InvestorCategory = InvestorCategory.QualifiedInstitutionalInvestor,
+            CompanyLegalName = companyName,
+            QiiInstitutionTypes = institutionType.ToString(),
+            HasValidQiiRegistrationOrLicense = true,
+            ConfirmsSecNigeriaQiiCriteria = true,
+        };
+        profile.Created("TestUser");
+        _context.UserInvestmentProfiles.Add(profile);
+        await _context.SaveChangesAsync();
+    }
+
     private HttpClient CreateAuthorizedClient(int userId, string email)
     {
         var client = _factory.CreateClient();
@@ -353,8 +550,12 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
 
     private void CleanupDatabase()
     {
+        _context.OfferingInvestorMessages.RemoveRange(_context.OfferingInvestorMessages);
         _context.OfferingUpdates.RemoveRange(_context.OfferingUpdates);
+        _context.PaymentTransactions.RemoveRange(_context.PaymentTransactions);
+        _context.InvestmentOrders.RemoveRange(_context.InvestmentOrders);
         _context.InvestorHoldings.RemoveRange(_context.InvestorHoldings);
+        _context.UserInvestmentProfiles.RemoveRange(_context.UserInvestmentProfiles);
         _context.InvestmentOfferings.RemoveRange(_context.InvestmentOfferings.IgnoreQueryFilters());
         _context.Users.RemoveRange(_context.Users);
         _context.SaveChanges();
