@@ -12,6 +12,10 @@ using Antital.Application.Features.Fundraisers.Investors.GetFundraiserQiiPartici
 using Antital.Application.Features.Fundraisers.Investors.ListFundraiserInvestorMessages;
 using Antital.Application.Features.Fundraisers.Investors.ReplyFundraiserInvestorMessage;
 using Antital.Application.Features.Fundraisers.Investors.UpdateFundraiserInvestorMessage;
+using Antital.Application.Features.Fundraisers.Settings.GetFundraiserNotificationPreferences;
+using Antital.Application.Features.Fundraisers.Settings.GetFundraiserSettingsProfile;
+using Antital.Application.Features.Fundraisers.Settings.UpdateFundraiserNotificationPreferences;
+using Antital.Application.Features.Fundraisers.Settings.UpdateFundraiserSettingsProfile;
 using Antital.Domain.Interfaces;
 using BuildingBlocks.API.Controllers;
 using BuildingBlocks.Application.Exceptions;
@@ -216,6 +220,78 @@ public class FundraisersController(IMediator mediator) : BaseController
     public async Task<IActionResult> GetInvestorAnalytics(CancellationToken cancellationToken = default)
     {
         var result = await mediator.Send(new GetFundraiserInvestorAnalyticsQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/settings/profile")]
+    [SwaggerOperation(
+        "Get Fundraiser Settings Profile",
+        "Returns company and primary contact fields for the authenticated fundraiser settings pages.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserSettingsProfileResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> GetSettingsProfile(CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(new GetFundraiserSettingsProfileQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPut("me/settings/profile")]
+    [SwaggerOperation(
+        "Update Fundraiser Settings Profile",
+        "Updates editable company and primary contact fields for the authenticated fundraiser.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserSettingsProfileResponse>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Validation error", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> UpdateSettingsProfile(
+        [FromBody] UpdateFundraiserSettingsProfileRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(
+            new UpdateFundraiserSettingsProfileCommand(
+                request.CompanyName,
+                request.RegistrationNumber,
+                request.Bio,
+                request.Website,
+                request.PublicEmail,
+                request.Headquarters,
+                request.Contact),
+            cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/settings/notifications")]
+    [SwaggerOperation(
+        "Get Fundraiser Notification Preferences",
+        "Returns email, in-app, and marketing notification preferences for the authenticated fundraiser.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserNotificationPreferencesResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> GetNotificationPreferences(CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(new GetFundraiserNotificationPreferencesQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpPut("me/settings/notifications")]
+    [SwaggerOperation(
+        "Update Fundraiser Notification Preferences",
+        "Upserts email, in-app, and marketing notification preferences for the authenticated fundraiser.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserNotificationPreferencesResponse>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Validation error", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> UpdateNotificationPreferences(
+        [FromBody] UpdateFundraiserNotificationPreferencesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(
+            new UpdateFundraiserNotificationPreferencesCommand(
+                request.Email,
+                request.InApp,
+                request.Marketing),
+            cancellationToken);
         return ApiResult(result);
     }
 
