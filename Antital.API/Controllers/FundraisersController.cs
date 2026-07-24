@@ -2,6 +2,7 @@ using Antital.Application.DTOs.Fundraisers;
 using Antital.Application.Features.Fundraisers.CampaignUpdates.CreateFundraiserCampaignUpdate;
 using Antital.Application.Features.Fundraisers.CampaignUpdates.ListFundraiserCampaignUpdates;
 using Antital.Application.Features.Fundraisers.CampaignUpdates.UpdateFundraiserCampaignUpdate;
+using Antital.Application.Features.Fundraisers.GetFundraiserAnalytics;
 using Antital.Application.Features.Fundraisers.GetFundraiserCampaign;
 using Antital.Application.Features.Fundraisers.GetFundraiserDashboard;
 using Antital.Application.Features.Fundraisers.Investors.GetFundraiserInvestorAnalytics;
@@ -109,6 +110,22 @@ public class FundraisersController(IMediator mediator) : BaseController
         var result = await mediator.Send(
             new UpdateFundraiserCampaignUpdateCommand(updateId, request.Title, request.Body, request.Publish),
             cancellationToken);
+        return ApiResult(result);
+    }
+
+    [HttpGet("me/analytics")]
+    [SwaggerOperation(
+        "Get Fundraiser Analytics",
+        "Returns engagement overview, traffic series, investor diversity, and conversion metrics for the primary owned offering.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<FundraiserAnalyticsResponse>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid period", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser", typeof(void))]
+    public async Task<IActionResult> GetAnalytics(
+        [FromQuery] string period = "last-7-days",
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(new GetFundraiserAnalyticsQuery(period), cancellationToken);
         return ApiResult(result);
     }
 

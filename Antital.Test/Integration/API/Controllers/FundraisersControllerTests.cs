@@ -233,6 +233,143 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
+    public async Task GetAnalytics_WithoutAuth_Returns401()
+    {
+        var response = await _client.GetAsync("/api/fundraisers/me/analytics");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetAnalytics_InvalidPeriod_ReturnsValidationError()
+    {
+        var fundraiser = SeedUser("fundraiser-analytics-period@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/analytics?period=yesterday");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserAnalyticsResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeFalse();
+        result.ValidationErrors.Should().ContainKey("period");
+    }
+
+    [Fact]
+    public async Task GetAnalytics_NoOwnedOffering_ReturnsEmptyZeros()
+    {
+        var fundraiser = SeedUser("fundraiser-analytics-empty@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/analytics");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserAnalyticsResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.OfferingId.Should().BeNull();
+        result.Value.Overview.TotalPageViews.Should().Be(0);
+        result.Value.Traffic.Points.Should().BeEmpty();
+        result.Value.Diversity.Geographic.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAnalytics_OwnedOffering_ReturnsAggregates()
+    {
+        var fundraiser = SeedUser("fundraiser-analytics@example.com", UserTypeEnum.FundRaiser);
+        var investor = SeedUser("analytics-holder@example.com", UserTypeEnum.IndividualInvestor);
+        investor.CountryOfResidence = "Nigeria";
+        investor.StateOfResidence = "Lagos";
+        await _context.SaveChangesAsync();
+
+        var offering = await SeedOwnedOfferingAsync(fundraiser.Id, "analytics-campaign");
+
+        var profile = new UserInvestmentProfile
+        {
+            UserId = investor.Id,
+            InvestorCategory = InvestorCategory.Retail,
+        };
+        profile.Created("TestUser");
+        _context.UserInvestmentProfiles.Add(profile);
+
+        var holding = new InvestorHolding
+        {
+            UserId = investor.Id,
+            OfferingId = offering.Id,
+            InvestedAmount = 5_000_000m,
+            CurrentValue = 5_000_000m,
+            Returns = 0m,
+            UnitHolding = 50,
+            InvestedAt = DateTime.UtcNow.AddDays(-3),
+        };
+        holding.Created("TestUser");
+        _context.InvestorHoldings.Add(holding);
+
+        var update = new OfferingUpdate
+        {
+            OfferingId = offering.Id,
+            Title = "Update",
+            Body = "Body",
+            Status = OfferingUpdateStatus.Published,
+            PublishedAt = DateTime.UtcNow.AddDays(-1),
+            LikeCount = 42,
+        };
+        update.Created("TestUser");
+        _context.OfferingUpdates.Add(update);
+
+        var today = DateTime.UtcNow.Date;
+        for (var i = 0; i < 7; i++)
+        {
+            var row = new OfferingEngagementDaily
+            {
+                OfferingId = offering.Id,
+                Date = today.AddDays(-6 + i),
+                PageViews = 1000 + (i * 100),
+                UniqueVisitors = 700 + (i * 50),
+                Shares = 10 + i,
+            };
+            row.Created("TestUser");
+            _context.OfferingEngagementDailies.Add(row);
+        }
+
+        var paid = new InvestmentOrder
+        {
+            UserId = investor.Id,
+            OfferingId = offering.Id,
+            Units = 50,
+            SharePrice = 100m,
+            Subtotal = 5_000m,
+            PlatformFeePercent = 0m,
+            PlatformFee = 0m,
+            TotalAmount = 5_000m,
+            Currency = "NGN",
+            Status = InvestmentOrderStatus.Paid,
+            PaidAt = DateTime.UtcNow.AddHours(24),
+        };
+        paid.Created("TestUser");
+        _context.InvestmentOrders.Add(paid);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/analytics?period=last-7-days");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserAnalyticsResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.OfferingId.Should().Be(offering.Id);
+        result.Value.OfferingSlug.Should().Be("analytics-campaign");
+        result.Value.Overview.CampaignLikes.Should().Be(42);
+        result.Value.Overview.TotalPageViews.Should().Be(9100);
+        result.Value.Overview.SocialShares.Should().Be(91);
+        result.Value.Traffic.Points.Should().HaveCount(7);
+        result.Value.Traffic.Unit.Should().Be("views");
+        result.Value.Diversity.TopLocation.Should().Be("Lagos, NG");
+        result.Value.Diversity.Geographic.Should().Contain(b => b.Label == "West Africa" && b.Percentage == 100);
+        result.Value.Diversity.Categories.Should().Contain(b => b.Label == "Retail Investor");
+        result.Value.Conversion.AverageTimeToInvestHours.Should().NotBeNull();
+        result.Value.Conversion.ViewToInvestmentRate.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
     public async Task GetQiiParticipation_WithoutAuth_Returns401()
     {
         var response = await _client.GetAsync("/api/fundraisers/me/investors/qii");
@@ -550,6 +687,7 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
 
     private void CleanupDatabase()
     {
+        _context.OfferingEngagementDailies.RemoveRange(_context.OfferingEngagementDailies);
         _context.OfferingInvestorMessages.RemoveRange(_context.OfferingInvestorMessages);
         _context.OfferingUpdates.RemoveRange(_context.OfferingUpdates);
         _context.PaymentTransactions.RemoveRange(_context.PaymentTransactions);

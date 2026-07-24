@@ -29,5 +29,6 @@ public class InvestmentOffering : TrackableEntity
     public ICollection<MediaAsset> MediaAssets { get; set; } = [];
     public ICollection<OfferingUpdate> Updates { get; set; } = [];
     public ICollection<OfferingInvestorMessage> InvestorMessages { get; set; } = [];
+    public ICollection<OfferingEngagementDaily> EngagementDailies { get; set; } = [];
     public ICollection<Testimonial> Testimonials { get; set; } = [];
 }
