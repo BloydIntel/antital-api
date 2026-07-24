@@ -4,6 +4,7 @@ using Antital.Application.Features.Investments;
 using Antital.Application.Features.Investments.Checkout;
 using Antital.Application.Features.Investments.ConfirmInvestmentOrder;
 using Antital.Application.Features.Investments.ProcessPaystackWebhook;
+using Antital.Infrastructure.Integrations.Cloudinary;
 using Antital.Infrastructure.Integrations.Paystack;
 using Antital.Application.Features.Investors;
 using Antital.Application.Features.Fundraisers;
@@ -73,6 +74,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IFundraiserInvestorMessagesRepository), typeof(FundraiserInvestorMessagesRepository));
         services.AddScoped(typeof(IFundraiserQiiParticipationRepository), typeof(FundraiserQiiParticipationRepository));
         services.AddScoped(typeof(IFundraiserAnalyticsRepository), typeof(FundraiserAnalyticsRepository));
+        services.AddScoped(typeof(IFundraiserDocumentsRepository), typeof(FundraiserDocumentsRepository));
         services.AddScoped(typeof(IInvestmentOrderRepository), typeof(InvestmentOrderRepository));
         services.AddScoped(typeof(IInvestorPaymentMethodRepository), typeof(InvestorPaymentMethodRepository));
         services.AddScoped(typeof(IInvestorWatchlistRepository), typeof(InvestorWatchlistRepository));
@@ -112,6 +114,7 @@ public static class DependencyInjection
         // Register EmailSettings
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
         services.Configure<PaystackSettings>(configuration.GetSection(PaystackSettings.SectionName));
+        services.Configure<CloudinarySettings>(opts => BindCloudinarySettings(opts, configuration));
         services.AddHttpClient(EmailService.MailgunHttpClientName);
 
         // Register authentication services
@@ -129,6 +132,7 @@ public static class DependencyInjection
         services.AddScoped<IConfirmInvestmentOrderService, ConfirmInvestmentOrderService>();
         services.AddScoped<PaystackSignatureValidator>();
         services.AddScoped<InvestmentOfferingAccess>();
+        services.AddScoped<IFileUploadService, CloudinaryFileUploadService>();
 
         services.AddHttpClient<IPaystackClient, PaystackClient>((serviceProvider, client) =>
         {
@@ -142,5 +146,31 @@ public static class DependencyInjection
         });
 
         return services;
+    }
+
+    /// <summary>
+    /// Binds nested Cloudinary:* and flat Cloudinary_* env aliases used in local secrets.
+    /// </summary>
+    private static void BindCloudinarySettings(CloudinarySettings opts, IConfiguration configuration)
+    {
+        configuration.GetSection(CloudinarySettings.SectionName).Bind(opts);
+
+        opts.CloudName = FirstNonEmpty(opts.CloudName, configuration["Cloudinary_Cloud_Name"]);
+        opts.ApiKey = FirstNonEmpty(opts.ApiKey, configuration["Cloudinary_API_Key"]);
+        opts.ApiSecret = FirstNonEmpty(opts.ApiSecret, configuration["Cloudinary_API_Secret"]);
+        opts.FolderName = FirstNonEmpty(opts.FolderName, configuration["Cloudinary_FolderName"], "antital");
+    }
+
+    private static string FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return string.Empty;
     }
 }

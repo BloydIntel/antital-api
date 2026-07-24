@@ -123,6 +123,7 @@ public static class AppUseExtensions
                     FundraiserInvestorMessagesSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     FundraiserQiiParticipationSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     FundraiserAnalyticsEngagementSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
+                    FundraiserDocumentsSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                 }
             }
             catch (Exception ex)

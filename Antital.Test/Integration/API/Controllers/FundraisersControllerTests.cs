@@ -233,6 +233,122 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
+    public async Task ListDocuments_WithoutAuth_Returns401()
+    {
+        var response = await _client.GetAsync("/api/fundraisers/me/documents");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ListDocuments_InvestorUser_Returns403()
+    {
+        var user = SeedUser("investor-docs@example.com", UserTypeEnum.IndividualInvestor);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/documents");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ListDocuments_NoOwnedOffering_ReturnsEmpty()
+    {
+        var fundraiser = SeedUser("fundraiser-docs-empty@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/documents");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserDocumentsResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.OfferingId.Should().BeNull();
+        result.Value.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ListDocuments_OwnedOffering_ReturnsDocuments()
+    {
+        var fundraiser = SeedUser("fundraiser-docs-list@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+        var offering = await SeedOwnedOfferingAsync(fundraiser.Id, "docs-campaign");
+
+        var doc = new OfferingDocument
+        {
+            OfferingId = offering.Id,
+            Title = "Offering Memorandum.Pdf",
+            FileUrl = "https://res.cloudinary.com/test/raw/upload/docs/memo.pdf",
+            DocumentType = DocumentType.Prospectus,
+            Category = DocumentCategory.Core,
+            ReviewStatus = DocumentReviewStatus.Approved,
+            FileSizeBytes = 2_400_000,
+            ContentType = "application/pdf",
+            CloudinaryPublicId = "docs/memo",
+        };
+        doc.Created("TestUser");
+        _context.OfferingDocuments.Add(doc);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        var response = await authClient.GetAsync("/api/fundraisers/me/documents");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserDocumentsResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.OfferingId.Should().Be(offering.Id);
+        result.Value.Items.Should().ContainSingle(d =>
+            d.Title == "Offering Memorandum.Pdf"
+            && d.Category == "Core"
+            && d.Status == "Approved"
+            && d.FileSizeBytes == 2_400_000);
+    }
+
+    [Fact]
+    public async Task UploadDocument_NoOwnedOffering_Returns404()
+    {
+        var fundraiser = SeedUser("fundraiser-docs-upload-empty@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        using var content = BuildDocumentMultipart("memo.pdf", "application/pdf", "pdf", "Core", "Memo");
+        var response = await authClient.PostAsync("/api/fundraisers/me/documents", content);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UploadDocument_OwnedOffering_CreatesPendingDocument()
+    {
+        var fundraiser = SeedUser("fundraiser-docs-upload@example.com", UserTypeEnum.FundRaiser);
+        await _context.SaveChangesAsync();
+        var offering = await SeedOwnedOfferingAsync(fundraiser.Id, "docs-upload-campaign");
+
+        using var authClient = CreateAuthorizedClient(fundraiser.Id, fundraiser.Email);
+        using var content = BuildDocumentMultipart(
+            "valuation.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "sheet-bytes",
+            "Analytics",
+            "Projected Valuation Model.xlsx");
+
+        var response = await authClient.PostAsync("/api/fundraisers/me/documents", content);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<FundraiserDocumentDto>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.Title.Should().Be("Projected Valuation Model.xlsx");
+        result.Value.Category.Should().Be("Analytics");
+        result.Value.Status.Should().Be("Pending Approval");
+        result.Value.FileUrl.Should().Contain("cloudinary.com");
+
+        var stored = await _context.OfferingDocuments
+            .AsNoTracking()
+            .SingleAsync(d => d.OfferingId == offering.Id && !d.IsDeleted);
+        stored.ReviewStatus.Should().Be(DocumentReviewStatus.PendingApproval);
+        stored.Category.Should().Be(DocumentCategory.Analytics);
+        stored.CloudinaryPublicId.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
     public async Task GetAnalytics_WithoutAuth_Returns401()
     {
         var response = await _client.GetAsync("/api/fundraisers/me/analytics");
@@ -659,6 +775,22 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
         await _context.SaveChangesAsync();
     }
 
+    private static MultipartFormDataContent BuildDocumentMultipart(
+        string fileName,
+        string contentType,
+        string body,
+        string category,
+        string title)
+    {
+        var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(body));
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        content.Add(fileContent, "file", fileName);
+        content.Add(new StringContent(category), "category");
+        content.Add(new StringContent(title), "title");
+        return content;
+    }
+
     private HttpClient CreateAuthorizedClient(int userId, string email)
     {
         var client = _factory.CreateClient();
@@ -690,6 +822,7 @@ public class FundraisersControllerTests : IClassFixture<CustomWebApplicationFact
         _context.OfferingEngagementDailies.RemoveRange(_context.OfferingEngagementDailies);
         _context.OfferingInvestorMessages.RemoveRange(_context.OfferingInvestorMessages);
         _context.OfferingUpdates.RemoveRange(_context.OfferingUpdates);
+        _context.OfferingDocuments.RemoveRange(_context.OfferingDocuments);
         _context.PaymentTransactions.RemoveRange(_context.PaymentTransactions);
         _context.InvestmentOrders.RemoveRange(_context.InvestmentOrders);
         _context.InvestorHoldings.RemoveRange(_context.InvestorHoldings);

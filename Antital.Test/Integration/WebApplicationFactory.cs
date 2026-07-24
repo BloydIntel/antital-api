@@ -20,6 +20,7 @@ namespace Antital.Test.Integration;
 public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Program> where TProgram : class
 {
     public FakePaystackClient FakePaystackClient { get; } = new();
+    public FakeFileUploadService FakeFileUploadService { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -51,6 +52,10 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
                 { "Paystack:PublicKey", "pk_test_public_key" },
                 { "Paystack:WebhookSecret", PaystackTestHelper.TestSecretKey },
                 { "Paystack:CallbackUrl", "http://localhost:3000/marketplace/invest/callback" },
+                { "Cloudinary:CloudName", "test-cloud" },
+                { "Cloudinary:ApiKey", "test-key" },
+                { "Cloudinary:ApiSecret", "test-secret" },
+                { "Cloudinary:FolderName", "antital-test" },
             });
         });
 
@@ -94,6 +99,9 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
             services.RemoveAll(typeof(IPaystackClient));
             services.RemoveAll(typeof(PaystackClient));
             services.AddSingleton<IPaystackClient>(FakePaystackClient);
+
+            services.RemoveAll(typeof(IFileUploadService));
+            services.AddSingleton<IFileUploadService>(FakeFileUploadService);
         });
         
         // Workaround: Configure Kestrel to use a real server instead of TestServer
