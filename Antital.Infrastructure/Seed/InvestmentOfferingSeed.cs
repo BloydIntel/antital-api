@@ -345,6 +345,10 @@ public static class InvestmentOfferingSeed
             Title = "Official Prospectus & Financial Model",
             FileUrl = "/documents/greentech-prospectus.pdf",
             DocumentType = DocumentType.Prospectus,
+            Category = DocumentCategory.Core,
+            ReviewStatus = DocumentReviewStatus.Approved,
+            FileSizeBytes = 2_400_000,
+            ContentType = "application/pdf",
             PageCount = 45,
         };
         doc.Created(SeedUser);
