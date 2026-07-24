@@ -122,6 +122,7 @@ public static class AppUseExtensions
                     WalletTransactionSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     FundraiserInvestorMessagesSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     FundraiserQiiParticipationSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
+                    FundraiserAnalyticsEngagementSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                 }
             }
             catch (Exception ex)
