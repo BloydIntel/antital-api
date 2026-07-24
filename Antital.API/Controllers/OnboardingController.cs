@@ -1,7 +1,11 @@
 using Antital.Application.DTOs.Onboarding;
+using Antital.Application.Features.Investments.Paystack;
+using Antital.Application.Features.Onboarding.GetApplicationFee;
 using Antital.Application.Features.Onboarding.GetOnboarding;
+using Antital.Application.Features.Onboarding.InitializeApplicationFeePayment;
 using Antital.Application.Features.Onboarding.SaveOnboarding;
 using Antital.Application.Features.Onboarding.SubmitOnboarding;
+using Antital.Application.Features.Onboarding.VerifyApplicationFeePayment;
 using BuildingBlocks.API.Controllers;
 using BuildingBlocks.Application.Features;
 using MediatR;
@@ -90,6 +94,57 @@ public class OnboardingController(IMediator mediator) : BaseController
     public async Task<IActionResult> Submit(CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new SubmitOnboardingCommand(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    /// <summary>
+    /// Fundraiser application fee quote and payment status.
+    /// </summary>
+    [HttpGet("application-fee")]
+    [SwaggerOperation("Get Application Fee", "Returns configured fee amount and current payment status for the fundraiser.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<ApplicationFeeStatusResponse>))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser or email not verified", typeof(void))]
+    public async Task<IActionResult> GetApplicationFee(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetApplicationFeeQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    /// <summary>
+    /// Initialize Paystack checkout for the fundraiser onboarding application fee.
+    /// </summary>
+    [HttpPost("application-fee/pay")]
+    [SwaggerOperation("Initialize Application Fee Payment", "Starts Paystack checkout for the fundraiser application fee.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<InitializeApplicationFeePaymentResponse>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Already paid or payment not configured", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser or email not verified", typeof(void))]
+    public async Task<IActionResult> InitializeApplicationFeePayment(
+        [FromBody] InitializeApplicationFeePaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var channel = PaystackChannelMapper.ParseChannel(request.Channel);
+        var result = await mediator.Send(new InitializeApplicationFeePaymentCommand(channel), cancellationToken);
+        return ApiResult(result);
+    }
+
+    /// <summary>
+    /// Verify Paystack application-fee payment after redirect (local-dev friendly when webhooks cannot reach localhost).
+    /// </summary>
+    [HttpPost("application-fee/verify")]
+    [SwaggerOperation("Verify Application Fee Payment", "Confirms Paystack payment and marks the application fee paid.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<ApplicationFeeStatusResponse>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Payment not complete or invalid reference", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not authenticated", typeof(void))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Not a fundraiser or email not verified", typeof(void))]
+    public async Task<IActionResult> VerifyApplicationFeePayment(
+        [FromBody] VerifyApplicationFeePaymentRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(
+            new VerifyApplicationFeePaymentCommand(request?.Reference),
+            cancellationToken);
         return ApiResult(result);
     }
 }

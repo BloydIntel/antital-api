@@ -22,5 +22,8 @@ var ui = builder.AddJavaScriptApp("ui", "../../../React/antital-ui")
 api.WithEnvironment(
     "Paystack__CallbackUrl",
     ReferenceExpression.Create($"{ui.GetEndpoint("http")}/marketplace/invest/callback"));
+api.WithEnvironment(
+    "Paystack__ApplicationFeeCallbackUrl",
+    ReferenceExpression.Create($"{ui.GetEndpoint("http")}/onboarding/fundraiser/application-fee/callback"));
 
 builder.Build().Run();

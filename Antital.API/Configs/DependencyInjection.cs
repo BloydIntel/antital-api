@@ -9,6 +9,7 @@ using Antital.Infrastructure.Integrations.Paystack;
 using Antital.Application.Features.Investors;
 using Antital.Application.Features.Fundraisers;
 using Antital.Application.Features.Onboarding;
+using Antital.Application.Features.Onboarding.ApplicationFeePayment;
 using Antital.Application.Services;
 using Antital.Domain.Interfaces;
 using Antital.Infrastructure.Repositories;
@@ -129,6 +130,7 @@ public static class DependencyInjection
         services.AddScoped<IFundraiserUserAccess, FundraiserUserAccess>();
         services.AddScoped<IInvestmentCheckoutAccess, InvestmentCheckoutAccess>();
         services.AddScoped<IInvestmentPaymentConfirmationService, InvestmentPaymentConfirmationService>();
+        services.AddScoped<IApplicationFeePaymentConfirmationService, ApplicationFeePaymentConfirmationService>();
         services.AddScoped<IConfirmInvestmentOrderService, ConfirmInvestmentOrderService>();
         services.AddScoped<PaystackSignatureValidator>();
         services.AddScoped<InvestmentOfferingAccess>();
