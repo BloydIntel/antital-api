@@ -1,6 +1,8 @@
 using Antital.Application.DTOs.Onboarding;
 using Antital.Application.Features.Investments.Paystack;
+using Antital.Application.Features.Onboarding.ConfirmSelfieVerification;
 using Antital.Application.Features.Onboarding.GetApplicationFee;
+using Antital.Application.Features.Onboarding.GetDojahWidgetConfig;
 using Antital.Application.Features.Onboarding.GetOnboarding;
 using Antital.Application.Features.Onboarding.InitializeApplicationFeePayment;
 using Antital.Application.Features.Onboarding.SaveOnboarding;
@@ -94,6 +96,35 @@ public class OnboardingController(IMediator mediator) : BaseController
     public async Task<IActionResult> Submit(CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new SubmitOnboardingCommand(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    /// <summary>
+    /// Public Dojah widget keys for launching EasyOnboard / selfie liveness (never returns private key).
+    /// </summary>
+    [HttpGet("kyc/dojah-widget-config")]
+    [SwaggerOperation("Get Dojah Widget Config", "Returns AppId, PublicKey, and WidgetId for the authenticated user.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Success", typeof(Result<DojahWidgetConfigResponse>))]
+    public async Task<IActionResult> GetDojahWidgetConfig(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetDojahWidgetConfigQuery(), cancellationToken);
+        return ApiResult(result);
+    }
+
+    /// <summary>
+    /// Confirm selfie/liveness after Dojah widget onSuccess by re-fetching verification with reference id.
+    /// </summary>
+    [HttpPost("kyc/confirm-selfie")]
+    [SwaggerOperation("Confirm Selfie Verification", "Validates Dojah widget reference and sets SelfieVerifiedAt.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Verified", typeof(Result<ConfirmSelfieVerificationResponse>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Verification failed", typeof(void))]
+    public async Task<IActionResult> ConfirmSelfie(
+        [FromBody] ConfirmSelfieVerificationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(
+            new ConfirmSelfieVerificationCommand(request.ReferenceId),
+            cancellationToken);
         return ApiResult(result);
     }
 

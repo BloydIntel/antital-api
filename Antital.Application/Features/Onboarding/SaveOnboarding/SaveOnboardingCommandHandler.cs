@@ -407,15 +407,15 @@ public class SaveOnboardingCommandHandler(
         kyc.IdType = payload.IdType;
         kyc.Nin = payload.Nin;
         kyc.Bvn = payload.Bvn;
-        kyc.GovernmentIdDocumentPathOrKey = result.GovernmentIdDocumentPathOrKey;
-        kyc.ProofOfAddressDocumentPathOrKey = result.ProofOfAddressDocumentPathOrKey;
-        kyc.SelfieVerificationPathOrKey = result.SelfieVerificationPathOrKey;
-        kyc.IncomeVerificationPathOrKey = result.IncomeVerificationPathOrKey;
+        kyc.GovernmentIdDocumentPathOrKey = result.GovernmentIdDocumentPathOrKey ?? payload.GovernmentIdDocumentPathOrKey ?? kyc.GovernmentIdDocumentPathOrKey;
+        kyc.ProofOfAddressDocumentPathOrKey = result.ProofOfAddressDocumentPathOrKey ?? payload.ProofOfAddressDocumentPathOrKey ?? kyc.ProofOfAddressDocumentPathOrKey;
+        kyc.SelfieVerificationPathOrKey = result.SelfieVerificationPathOrKey ?? payload.SelfieVerificationPathOrKey ?? kyc.SelfieVerificationPathOrKey;
+        kyc.IncomeVerificationPathOrKey = result.IncomeVerificationPathOrKey ?? payload.IncomeVerificationPathOrKey ?? kyc.IncomeVerificationPathOrKey;
         kyc.IncomeVerificationDocumentTypes = payload.IncomeVerificationDocumentTypesCommaSeparated;
-        kyc.GovernmentIdVerifiedAt = result.GovernmentIdVerifiedAt;
-        kyc.ProofOfAddressVerifiedAt = result.ProofOfAddressVerifiedAt;
-        kyc.SelfieVerifiedAt = result.SelfieVerifiedAt;
-        kyc.IncomeVerifiedAt = result.IncomeVerifiedAt;
+        kyc.GovernmentIdVerifiedAt = result.GovernmentIdVerifiedAt ?? kyc.GovernmentIdVerifiedAt;
+        kyc.ProofOfAddressVerifiedAt = result.ProofOfAddressVerifiedAt ?? kyc.ProofOfAddressVerifiedAt;
+        kyc.SelfieVerifiedAt = result.SelfieVerifiedAt ?? kyc.SelfieVerifiedAt;
+        kyc.IncomeVerifiedAt = result.IncomeVerifiedAt ?? kyc.IncomeVerifiedAt;
     }
 
     private async Task SaveKycAndCorporateDocumentsAsync(
