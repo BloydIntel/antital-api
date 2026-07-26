@@ -140,6 +140,50 @@ public class InvestorProfileControllerTests : IClassFixture<CustomWebApplication
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task GetProfile_CorporateInvestor_ReturnsAuthenticatedUserProfile()
+    {
+        var user = SeedUser("profile-corporate@example.com", UserTypeEnum.CorporateInvestor);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.GetAsync("/api/investors/me/profile");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Result<InvestorProfileResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.Email.Should().Be("profile-corporate@example.com");
+        result.Value.UserType.Should().Be(UserTypeEnum.CorporateInvestor);
+        result.Value.FirstName.Should().Be("Jane");
+        result.Value.LastName.Should().Be("Okonkwo");
+    }
+
+    [Fact]
+    public async Task UpdateProfile_CorporateInvestor_UpdatesEditableFields()
+    {
+        var user = SeedUser("profile-corporate-update@example.com", UserTypeEnum.CorporateInvestor);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.PutAsJsonAsync(
+            "/api/investors/me/profile",
+            new UpdateInvestorProfileRequest(
+                FirstName: "Ada",
+                LastName: "Okafor",
+                PreferredName: "Ada",
+                PhoneNumber: "+2348098765432",
+                ResidentialAddress: "42 Admiralty Way, Lekki Phase 1",
+                StateOfResidence: "Lagos State",
+                CountryOfResidence: "Nigeria"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Result<InvestorProfileResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.FirstName.Should().Be("Ada");
+        result.Value.UserType.Should().Be(UserTypeEnum.CorporateInvestor);
+        result.Value.Email.Should().Be("profile-corporate-update@example.com");
+    }
+
     private static UpdateInvestorProfileRequest ValidUpdateRequest() =>
         new(
             FirstName: "Ada",
@@ -150,13 +194,13 @@ public class InvestorProfileControllerTests : IClassFixture<CustomWebApplication
             StateOfResidence: "Lagos State",
             CountryOfResidence: "Nigeria");
 
-    private User SeedUser(string email)
+    private User SeedUser(string email, UserTypeEnum userType = UserTypeEnum.IndividualInvestor)
     {
         var user = new User
         {
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
-            UserType = UserTypeEnum.IndividualInvestor,
+            UserType = userType,
             IsEmailVerified = true,
             FirstName = "Jane",
             LastName = "Okonkwo",

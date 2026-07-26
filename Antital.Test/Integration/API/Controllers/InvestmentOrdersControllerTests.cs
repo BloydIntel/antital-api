@@ -98,6 +98,32 @@ public class InvestmentOrdersControllerTests : IClassFixture<CustomWebApplicatio
     }
 
     [Fact]
+    public async Task CreateOrder_CorporateInvestorWithSubmittedOnboarding_ReturnsOrderBreakdown()
+    {
+        var user = SeedUser("corporate-investor@example.com", UserTypeEnum.CorporateInvestor);
+        await _context.SaveChangesAsync();
+        SeedSubmittedOnboarding(user.Id, OnboardingFlowType.CorporateInvestor);
+        var offering = await SeedOfferingAsync(sharePrice: 100m, minInvestment: 1000m, maxInvestment: 50_000m);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+
+        var response = await authClient.PostAsJsonAsync(
+            $"/api/investments/{offering.Id}/orders",
+            new CreateInvestmentOrderRequest(10));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<CreateInvestmentOrderResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.OfferingId.Should().Be(offering.Id);
+        result.Value.Units.Should().Be(10);
+        result.Value.Subtotal.Should().Be(1000m);
+        result.Value.TotalAmount.Should().Be(1025m);
+        result.Value.Status.Should().Be(nameof(InvestmentOrderStatus.PendingPayment));
+    }
+
+    [Fact]
     public async Task CreateOrder_BelowMinimumInvestment_Returns400()
     {
         var user = SeedUser("min-check@example.com");
@@ -132,13 +158,13 @@ public class InvestmentOrdersControllerTests : IClassFixture<CustomWebApplicatio
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    private User SeedUser(string email)
+    private User SeedUser(string email, UserTypeEnum userType = UserTypeEnum.IndividualInvestor)
     {
         var user = new User
         {
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
-            UserType = UserTypeEnum.IndividualInvestor,
+            UserType = userType,
             IsEmailVerified = true,
             FirstName = "Jane",
             LastName = "Investor",
@@ -154,12 +180,14 @@ public class InvestmentOrdersControllerTests : IClassFixture<CustomWebApplicatio
         return user;
     }
 
-    private void SeedSubmittedOnboarding(int userId)
+    private void SeedSubmittedOnboarding(
+        int userId,
+        OnboardingFlowType flowType = OnboardingFlowType.IndividualInvestor)
     {
         var onboarding = new UserOnboarding
         {
             UserId = userId,
-            FlowType = OnboardingFlowType.IndividualInvestor,
+            FlowType = flowType,
             CurrentStep = OnboardingStep.Kyc,
             Status = OnboardingStatus.Submitted,
             SubmittedAt = DateTime.UtcNow,

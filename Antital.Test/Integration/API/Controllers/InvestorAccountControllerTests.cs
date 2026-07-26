@@ -194,13 +194,46 @@ public class InvestorAccountControllerTests : IClassFixture<CustomWebApplication
         result.Value.KycStatus.Should().Be("Pending");
     }
 
-    private User SeedUser(string email)
+    [Fact]
+    public async Task GetAccount_CorporateInvestor_WithOciProfile_ReturnsCorporateClassification()
+    {
+        var user = SeedUser("account-corporate@example.com", UserTypeEnum.CorporateInvestor);
+        await _context.SaveChangesAsync();
+
+        _context.UserOnboardings.Add(new UserOnboarding
+        {
+            UserId = user.Id,
+            FlowType = OnboardingFlowType.CorporateInvestor,
+            CurrentStep = OnboardingStep.Review,
+            Status = OnboardingStatus.Submitted,
+        });
+
+        _context.UserInvestmentProfiles.Add(new UserInvestmentProfile
+        {
+            UserId = user.Id,
+            InvestorCategory = InvestorCategory.OtherCorporateInvestor,
+        });
+
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.GetAsync("/api/investors/me/account");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Result<InvestorAccountResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.AccountType.Should().Be("Other Corporate Investor (OCI)");
+        result.Value.InvestorClassification.Should().Be("OCI");
+        result.Value.AccountStatus.Should().Be("Active");
+    }
+
+    private User SeedUser(string email, UserTypeEnum userType = UserTypeEnum.IndividualInvestor)
     {
         var user = new User
         {
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
-            UserType = UserTypeEnum.IndividualInvestor,
+            UserType = userType,
             IsEmailVerified = true,
             FirstName = "Jane",
             LastName = "Okonkwo",

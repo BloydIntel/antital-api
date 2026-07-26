@@ -92,6 +92,54 @@ public class InvestorsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetDashboard_CorporateInvestor_ReturnsDashboardBundle()
+    {
+        var user = SeedUser("corporate-dashboard@example.com", userType: UserTypeEnum.CorporateInvestor);
+        var offering = await SeedOfferingAsync("corporate-greentech-solutions");
+        await SeedDashboardDataAsync(user.Id, offering);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+
+        var response = await authClient.GetAsync("/api/investors/me/dashboard?period=this-month");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<InvestorDashboardResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.Summary.AvailableBalance.Should().Be(5_325_400m);
+        result.Value.Summary.TotalInvested.Should().Be(25_400_000m);
+        result.Value.Summary.Currency.Should().Be("NGN");
+        result.Value.Holdings.Should().ContainSingle(h => h.Slug == "corporate-greentech-solutions");
+        result.Value.ActiveDeals.Should().ContainSingle(d => d.Slug == "corporate-greentech-solutions");
+        result.Value.PortfolioPerformance.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetDashboard_CorporateInvestor_ReturnsHoldingsForPortfolioView()
+    {
+        var user = SeedUser("corporate-portfolio@example.com", userType: UserTypeEnum.CorporateInvestor);
+        var offering = await SeedOfferingAsync("corporate-portfolio-offering");
+        await SeedDashboardDataAsync(user.Id, offering);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+
+        var response = await authClient.GetAsync("/api/investors/me/dashboard?period=this-month");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<InvestorDashboardResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.Holdings.Should().NotBeEmpty();
+        result.Value.Holdings.Should().ContainSingle(h =>
+            h.Slug == "corporate-portfolio-offering"
+            && h.Invested == 25_400_000m
+            && h.CurrentValue == 1_250m
+            && h.Returns == 432_650m
+            && h.UnitHolding == 1234);
+    }
+
+    [Fact]
     public async Task GetDashboard_NewInvestor_ReturnsEmptyArraysAndZeroSummary()
     {
         var user = SeedUser("empty@example.com");
@@ -111,13 +159,16 @@ public class InvestorsControllerTests : IClassFixture<CustomWebApplicationFactor
         result.Value.PortfolioPerformance.Should().BeEmpty();
     }
 
-    private User SeedUser(string email, string? preferredName = null)
+    private User SeedUser(
+        string email,
+        string? preferredName = null,
+        UserTypeEnum userType = UserTypeEnum.IndividualInvestor)
     {
         var user = new User
         {
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
-            UserType = UserTypeEnum.IndividualInvestor,
+            UserType = userType,
             IsEmailVerified = true,
             FirstName = "Jane",
             LastName = "Okonkwo",
