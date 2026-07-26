@@ -431,6 +431,60 @@ public class SaveOnboardingCommandValidatorTests
     }
 
     [Fact]
+    public void KycStep_WithInvalidPassportNumber_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.InternationalPassport, "12345678901", "21234567890", null, null, null, null, null)
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.KycPayload!.Nin)
+            .WithErrorMessage("Passport number must be 1 letter followed by 8 digits (e.g. A00123456).");
+    }
+
+    [Fact]
+    public void KycStep_WithValidPassportNumber_Passes()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.InternationalPassport, "A00123456", "21234567890", null, null, null, null, null)
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void KycStep_WithValidDriversLicence_Passes()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.DriversLicence, "FKJ494A2133", "21234567890", null, null, null, null, null)
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void KycStep_WithInvalidDriversLicence_Fails()
+    {
+        var cmd = new SaveOnboardingCommand(
+            OnboardingStep.Kyc,
+            null,
+            null,
+            new KycPayload(KycIdType.DriversLicence, "AB", "21234567890", null, null, null, null, null)
+        );
+        var result = _validator.TestValidate(cmd);
+        result.ShouldHaveValidationErrorFor(c => c.KycPayload!.Nin)
+            .WithErrorMessage("Driver's licence number must be 5–15 alphanumeric characters.");
+    }
+
+    [Fact]
     public void CorporateQiiProfile_WithNoInstitutionTypes_Fails()
     {
         var cmd = new SaveOnboardingCommand(

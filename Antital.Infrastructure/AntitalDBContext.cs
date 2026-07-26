@@ -38,6 +38,7 @@ public class AntitalDBContext(
     public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
     public DbSet<InvestorPaymentMethod> InvestorPaymentMethods { get; set; }
     public DbSet<FundraiserNotificationPreferences> FundraiserNotificationPreferences { get; set; }
+    public DbSet<ExternalProviderCheck> ExternalProviderChecks { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -165,6 +166,30 @@ public class AntitalDBContext(
         ConfigureInvestorDashboard(modelBuilder);
         ConfigureInvestmentOfferings(modelBuilder);
         ConfigureInvestmentCheckout(modelBuilder);
+        ConfigureExternalProviderChecks(modelBuilder);
+    }
+
+    private static void ConfigureExternalProviderChecks(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ExternalProviderCheck>(entity =>
+        {
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
+
+            entity.Property(e => e.Provider).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Operation).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.ExternalReference).HasMaxLength(100);
+            entity.Property(e => e.ErrorCode).HasMaxLength(100);
+            entity.Property(e => e.RequestFingerprint).HasMaxLength(64);
+
+            entity.HasIndex(e => new { e.Provider, e.Operation, e.CreatedAt })
+                .HasFilter("\"IsDeleted\" = false");
+            entity.HasIndex(e => e.UserId)
+                .HasFilter("\"UserId\" IS NOT NULL AND \"IsDeleted\" = false");
+        });
     }
 
     private static void ConfigureInvestmentCheckout(ModelBuilder modelBuilder)

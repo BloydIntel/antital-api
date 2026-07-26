@@ -4,7 +4,9 @@ using Antital.Application.Features.Investments;
 using Antital.Application.Features.Investments.Checkout;
 using Antital.Application.Features.Investments.ConfirmInvestmentOrder;
 using Antital.Application.Features.Investments.ProcessPaystackWebhook;
+using Antital.Infrastructure.Integrations;
 using Antital.Infrastructure.Integrations.Cloudinary;
+using Antital.Infrastructure.Integrations.Dojah;
 using Antital.Infrastructure.Integrations.Paystack;
 using Antital.Application.Features.Investors;
 using Antital.Application.Features.Fundraisers;
@@ -117,6 +119,7 @@ public static class DependencyInjection
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
         services.Configure<PaystackSettings>(configuration.GetSection(PaystackSettings.SectionName));
         services.Configure<CloudinarySettings>(opts => BindCloudinarySettings(opts, configuration));
+        services.Configure<DojahSettings>(opts => BindDojahSettings(opts, configuration));
         services.AddHttpClient(EmailService.MailgunHttpClientName);
 
         // Register authentication services
@@ -125,7 +128,8 @@ public static class DependencyInjection
         services.AddSingleton<ResetTokenProtector>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IAntitalCurrentUser, AntitalCurrentUser>();
-        services.AddScoped<IKycVerificationService, PassThroughKycVerificationService>();
+        services.AddScoped<PassThroughKycVerificationService>();
+        services.AddScoped<IKycVerificationService, DojahKycVerificationService>();
         services.AddScoped<IOnboardingUserAccess, OnboardingUserAccess>();
         services.AddScoped<IInvestorUserAccess, InvestorUserAccess>();
         services.AddScoped<IFundraiserUserAccess, FundraiserUserAccess>();
@@ -148,6 +152,18 @@ public static class DependencyInjection
             }
         });
 
+        services.AddHttpClient<DojahClient>((serviceProvider, client) =>
+        {
+            var settings = serviceProvider.GetRequiredService<IOptions<DojahSettings>>().Value;
+            var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl)
+                ? "https://sandbox.dojah.io"
+                : settings.BaseUrl.TrimEnd('/') + "/";
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
+        services.AddScoped<IExternalProviderCheckRecorder, ExternalProviderCheckRecorder>();
+        services.AddScoped<IDojahClient, AuditingDojahClient>();
+
         return services;
     }
 
@@ -162,6 +178,20 @@ public static class DependencyInjection
         opts.ApiKey = FirstNonEmpty(opts.ApiKey, configuration["Cloudinary_API_Key"]);
         opts.ApiSecret = FirstNonEmpty(opts.ApiSecret, configuration["Cloudinary_API_Secret"]);
         opts.FolderName = FirstNonEmpty(opts.FolderName, configuration["Cloudinary_FolderName"], "antital");
+    }
+
+    /// <summary>
+    /// Binds nested Dojah:* and flat Dojah_* env aliases used in local secrets / host env.
+    /// </summary>
+    private static void BindDojahSettings(DojahSettings opts, IConfiguration configuration)
+    {
+        configuration.GetSection(DojahSettings.SectionName).Bind(opts);
+
+        opts.AppId = FirstNonEmpty(opts.AppId, configuration["Dojah_AppId"]);
+        opts.PublicKey = FirstNonEmpty(opts.PublicKey, configuration["Dojah_PublicKey"]);
+        opts.PrivateKey = FirstNonEmpty(opts.PrivateKey, configuration["Dojah_PrivateKey"]);
+        opts.WidgetId = FirstNonEmpty(opts.WidgetId, configuration["Dojah_WidgetId"]);
+        opts.BaseUrl = FirstNonEmpty(opts.BaseUrl, configuration["Dojah_BaseUrl"], "https://sandbox.dojah.io");
     }
 
     private static string FirstNonEmpty(params string?[] values)
