@@ -72,6 +72,53 @@ Tests auto-migrate the test DB.
 - Spins up Postgres service named `postgres`
 - Uses connection string: `Host=localhost;Port=5432;Database=antitaldb_test;Username=postgres;Password=postgres`
 
+## Secret Management for Local Development
+
+Sensitive configuration values (e.g., API keys, connection strings) should not be committed to version control. For local development, there are two primary ways to manage these:
+
+### 1. User Secrets
+
+This is the recommended approach for development-specific secrets that don't need to be shared.
+
+-   **Initialize User Secrets:**
+    First, add a `UserSecretsId` to your `.csproj` file (e.g., `Antital.API/Antital.API.csproj`). If it's not already there, you can add it within a `<PropertyGroup>`:
+    ```xml
+    <PropertyGroup>
+      <UserSecretsId>YOUR_UNIQUE_GUID_HERE</UserSecretsId>
+    </PropertyGroup>
+    ```
+    You can generate a GUID using `uuidgen` in your terminal.
+
+-   **Set a Secret:**
+    Navigate to the project directory containing your `.csproj` file (e.g., `cd Antital.API`) or use the `--project` flag. Then, set your secret:
+    ```bash
+    dotnet user-secrets set "Section:Key" "YourSecretValue"
+    # Example for a JWT key:
+    dotnet user-secrets set "Jwt:Key" "q8cKZr8u9wH2v3F5Zz8pVd5pE5ZzZc4Qn1F0y9RZzF8="
+    # Example for Dojah PrivateKey:
+    dotnet user-secrets set "Dojah:PrivateKey" "sk_live_YOUR_PRIVATE_KEY"
+    ```
+    These secrets are stored in a JSON file on your machine (outside the repository) and automatically loaded by the application in the Development environment.
+
+### 2. `appsettings.Development.local.json`
+
+For local configuration overrides that are not sensitive but you want to keep out of `appsettings.Development.json` (e.g., changing a service endpoint URL just for your local setup), you can create `appsettings.Development.local.json`.
+
+This file is typically ignored by Git (check `.gitignore`) and allows you to override any settings defined in `appsettings.json` or `appsettings.Development.json` without modifying the committed files.
+
+Example `appsettings.Development.local.json`:
+```json
+{
+  "Dojah": {
+    "Enabled": true,
+    "AppId": "your_local_app_id",
+    "PublicKey": "your_local_public_key",
+    "WidgetId": "your_local_widget_id",
+    "BaseUrl": "https://sandbox.dojah.io"
+  }
+}
+```
+
 ## URLs
 - Swagger: http://localhost:18001/swagger
 - Health: http://localhost:18001/healthz
