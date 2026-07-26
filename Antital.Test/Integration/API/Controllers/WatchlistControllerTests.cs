@@ -96,6 +96,28 @@ public class WatchlistControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetWatchlist_CorporateInvestor_WithSeededItem_ReturnsRichItem()
+    {
+        var user = SeedUser("watchlist-corporate-list@example.com", UserTypeEnum.CorporateInvestor);
+        var offering = await SeedOfferingAsync("corporate-greentech-solutions", deadlineDays: 15, raised: 990_000m, goal: 1_100_000m);
+        await SeedWatchlistItemAsync(user.Id, offering, 4.22m);
+        await SeedOfferingUpdateAsync(offering.Id, "Corporate production facility expansion fully cleared");
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.GetAsync("/api/investors/me/watchlist");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Result<WatchlistResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().ContainSingle(i =>
+            i.Slug == "corporate-greentech-solutions"
+            && i.ChangePercent == 4.22m
+            && i.RecentUpdate == "Corporate production facility expansion fully cleared");
+        result.Value.Counts.All.Should().Be(1);
+    }
+
+    [Fact]
     public async Task AddToWatchlist_AddsItem()
     {
         var user = SeedUser("watchlist-add@example.com");
@@ -115,6 +137,24 @@ public class WatchlistControllerTests : IClassFixture<CustomWebApplicationFactor
         var list = await authClient.GetAsync("/api/investors/me/watchlist");
         var listResult = await list.Content.ReadFromJsonAsync<Result<WatchlistResponse>>(JsonOptions);
         listResult!.Value!.Items.Should().ContainSingle(i => i.OfferingId == offering.Id);
+    }
+
+    [Fact]
+    public async Task AddToWatchlist_CorporateInvestor_AddsItem()
+    {
+        var user = SeedUser("watchlist-corporate-add@example.com", UserTypeEnum.CorporateInvestor);
+        var offering = await SeedOfferingAsync("corporate-fintech-innovators");
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.PostAsJsonAsync(
+            "/api/investors/me/watchlist",
+            new AddToWatchlistRequest(offering.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Result<WatchlistItemDto>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.Slug.Should().Be("corporate-fintech-innovators");
     }
 
     [Fact]
@@ -198,13 +238,13 @@ public class WatchlistControllerTests : IClassFixture<CustomWebApplicationFactor
         notWatchlistedResult!.Value!.IsWatchlisted.Should().BeFalse();
     }
 
-    private User SeedUser(string email)
+    private User SeedUser(string email, UserTypeEnum userType = UserTypeEnum.IndividualInvestor)
     {
         var user = new User
         {
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
-            UserType = UserTypeEnum.IndividualInvestor,
+            UserType = userType,
             IsEmailVerified = true,
             FirstName = "Jane",
             LastName = "Okonkwo",

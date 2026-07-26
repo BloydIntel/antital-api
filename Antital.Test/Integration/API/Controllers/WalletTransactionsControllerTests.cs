@@ -94,6 +94,31 @@ public class WalletTransactionsControllerTests : IClassFixture<CustomWebApplicat
     }
 
     [Fact]
+    public async Task GetWalletTransactions_CorporateInvestorWithPaidOrder_ReturnsInvestmentRow()
+    {
+        var user = SeedUser("wallet-corporate-paid@example.com", UserTypeEnum.CorporateInvestor);
+        var offering = await SeedOfferingAsync("corporate-aquapure-innovations");
+        await SeedPaidOrderAsync(user.Id, offering);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.GetAsync("/api/investors/me/wallet/transactions?pageSize=3");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<WalletTransactionsResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().ContainSingle();
+        var item = result.Value.Items[0];
+        item.Type.Should().Be("Investment");
+        item.Status.Should().Be("Completed");
+        item.Amount.Should().Be(10_000m);
+        item.Fees.Should().Be(250m);
+        item.OfferingSlug.Should().Be("corporate-aquapure-innovations");
+        item.SubDescription.Should().Contain("20 units");
+    }
+
+    [Fact]
     public async Task GetWalletTransactions_SecondaryMarketType_Returns400()
     {
         var user = SeedUser("wallet-type@example.com");
@@ -161,6 +186,31 @@ public class WalletTransactionsControllerTests : IClassFixture<CustomWebApplicat
     }
 
     [Fact]
+    public async Task GetWalletTransaction_CorporateInvestorWithPaidOrder_ReturnsInvoice()
+    {
+        var user = SeedUser("wallet-corporate-detail@example.com", UserTypeEnum.CorporateInvestor);
+        var offering = await SeedOfferingAsync("corporate-aquapure-innovations");
+        var order = await SeedPaidOrderAsync(user.Id, offering);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.GetAsync($"/api/investors/me/wallet/transactions/{order.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<WalletTransactionInvoiceResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.InvoiceId.Should().Be(order.Id);
+        result.Value.PaymentMethod.Should().Be("Card");
+        result.Value.PaymentReference.Should().Be(order.PaystackReference);
+        result.Value.BillTo.Email.Should().Be(user.Email);
+        result.Value.TransactionDetails.Type.Should().Be("Investment");
+        result.Value.TransactionDetails.Status.Should().Be("Completed");
+        result.Value.Breakdown.Units.Should().Be(20);
+        result.Value.Breakdown.TotalAmount.Should().Be(10_250m);
+    }
+
+    [Fact]
     public async Task GetWalletTransaction_OtherUsersOrder_Returns404()
     {
         var owner = SeedUser("wallet-owner@example.com");
@@ -203,13 +253,13 @@ public class WalletTransactionsControllerTests : IClassFixture<CustomWebApplicat
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    private User SeedUser(string email)
+    private User SeedUser(string email, UserTypeEnum userType = UserTypeEnum.IndividualInvestor)
     {
         var user = new User
         {
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
-            UserType = UserTypeEnum.IndividualInvestor,
+            UserType = userType,
             IsEmailVerified = true,
             FirstName = "Jane",
             LastName = "Okonkwo",
