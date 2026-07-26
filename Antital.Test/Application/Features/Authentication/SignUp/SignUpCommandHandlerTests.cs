@@ -15,7 +15,6 @@ namespace Antital.Test.Application.Features.Authentication.SignUp;
 public class SignUpCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
-    private readonly Mock<IUserInvestmentProfileRepository> _userInvestmentProfileRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<IEmailService> _emailServiceMock;
@@ -27,7 +26,6 @@ public class SignUpCommandHandlerTests
     public SignUpCommandHandlerTests()
     {
         _userRepositoryMock = new Mock<IUserRepository>();
-        _userInvestmentProfileRepositoryMock = new Mock<IUserInvestmentProfileRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _emailServiceMock = new Mock<IEmailService>();
@@ -43,7 +41,6 @@ public class SignUpCommandHandlerTests
 
         _handler = new SignUpCommandHandler(
             _userRepositoryMock.Object,
-            _userInvestmentProfileRepositoryMock.Object,
             _passwordHasherMock.Object,
             _jwtTokenServiceMock.Object,
             _emailServiceMock.Object,
@@ -374,7 +371,7 @@ public class SignUpCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_CorporateInvestor_CreatesCorporateInvestmentProfile()
+    public async Task Handle_CorporateInvestor_DoesNotCreateInvestmentProfileDuringSignup()
     {
         var command = new SignUpCommand(
             FirstName: "Jane",
@@ -391,7 +388,6 @@ public class SignUpCommandHandlerTests
             ConfirmPassword: "SecurePass123!",
             HasAgreedToTerms: true,
             UserType: "CorporateInvestor",
-            CorporateInvestorCategory: "QualifiedInstitutionalInvestor",
             CompanyLegalName: "Acme Ventures Ltd",
             TradingBrandName: "Acme Ventures",
             RegistrationType: "LTD",
@@ -414,7 +410,6 @@ public class SignUpCommandHandlerTests
         );
 
         User? capturedUser = null;
-        UserInvestmentProfile? capturedProfile = null;
 
         _userRepositoryMock.Setup(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
         _passwordHasherMock.Setup(x => x.HashPassword(command.Password)).Returns("hashed_password");
@@ -424,9 +419,6 @@ public class SignUpCommandHandlerTests
                 capturedUser = u;
                 capturedUser.Id = 77;
             });
-        _userInvestmentProfileRepositoryMock
-            .Setup(x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()))
-            .Callback<UserInvestmentProfile, CancellationToken>((p, _) => capturedProfile = p);
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _jwtTokenServiceMock.Setup(x => x.GenerateToken(It.IsAny<User>())).Returns("jwt_token");
         _currentUserMock.Setup(x => x.IPAddress).Returns("127.0.0.1");
@@ -435,19 +427,11 @@ public class SignUpCommandHandlerTests
 
         capturedUser.Should().NotBeNull();
         capturedUser!.UserType.Should().Be(UserTypeEnum.CorporateInvestor);
-        _userInvestmentProfileRepositoryMock.Verify(x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()), Times.Once);
-
-        capturedProfile.Should().NotBeNull();
-        capturedProfile!.User.Should().BeSameAs(capturedUser);
-        capturedProfile.InvestorCategory.Should().Be(InvestorCategory.QualifiedInstitutionalInvestor);
-        capturedProfile.CompanyLegalName.Should().Be("Acme Ventures Ltd");
-        capturedProfile.RegistrationNumber.Should().Be("RC12345");
-        capturedProfile.CompanyWebsite.Should().Be("https://acme.com");
-        capturedProfile.RepresentativeFullName.Should().Be("Jane Corp");
+        _userRepositoryMock.Verify(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_CorporateInvestor_WithOciCategory_SetsOciInvestorCategory()
+    public async Task Handle_CorporateInvestor_WithSignupCategory_StillSignsUpWhenValidatorIsBypassed()
     {
         var command = new SignUpCommand(
             FirstName: "Jane",
@@ -468,26 +452,21 @@ public class SignUpCommandHandlerTests
             CompanyLegalName: "OCI Ventures Ltd"
         );
 
-        UserInvestmentProfile? capturedProfile = null;
         _userRepositoryMock.Setup(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
         _passwordHasherMock.Setup(x => x.HashPassword(command.Password)).Returns("hashed_password");
         _userRepositoryMock.Setup(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
             .Callback<User, CancellationToken>((u, _) => u.Id = 88);
-        _userInvestmentProfileRepositoryMock
-            .Setup(x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()))
-            .Callback<UserInvestmentProfile, CancellationToken>((p, _) => capturedProfile = p);
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _jwtTokenServiceMock.Setup(x => x.GenerateToken(It.IsAny<User>())).Returns("jwt_token");
         _currentUserMock.Setup(x => x.IPAddress).Returns("127.0.0.1");
 
-        await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, CancellationToken.None);
 
-        capturedProfile.Should().NotBeNull();
-        capturedProfile!.InvestorCategory.Should().Be(InvestorCategory.OtherCorporateInvestor);
+        result.IsSuccess.Should().BeTrue();
     }
 
     [Fact]
-    public async Task Handle_FundraiserSignup_CreatesFundraiserInvestmentProfile()
+    public async Task Handle_FundraiserSignup_DoesNotCreateInvestmentProfileDuringSignup()
     {
         var command = new SignUpCommand(
             FirstName: "Ayo",
@@ -526,7 +505,6 @@ public class SignUpCommandHandlerTests
         );
 
         User? capturedUser = null;
-        UserInvestmentProfile? capturedProfile = null;
         _userRepositoryMock.Setup(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
         _passwordHasherMock.Setup(x => x.HashPassword(command.Password)).Returns("hashed_password");
         _userRepositoryMock.Setup(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
@@ -535,9 +513,6 @@ public class SignUpCommandHandlerTests
                 capturedUser = u;
                 capturedUser.Id = 22;
             });
-        _userInvestmentProfileRepositoryMock
-            .Setup(x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()))
-            .Callback<UserInvestmentProfile, CancellationToken>((p, _) => capturedProfile = p);
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _jwtTokenServiceMock.Setup(x => x.GenerateToken(It.IsAny<User>())).Returns("jwt_token");
         _currentUserMock.Setup(x => x.IPAddress).Returns("127.0.0.1");
@@ -546,14 +521,7 @@ public class SignUpCommandHandlerTests
 
         capturedUser.Should().NotBeNull();
         capturedUser!.UserType.Should().Be(UserTypeEnum.FundRaiser);
-        _userInvestmentProfileRepositoryMock.Verify(
-            x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-        capturedProfile.Should().NotBeNull();
-        capturedProfile!.User.Should().BeSameAs(capturedUser);
-        capturedProfile.InvestorCategory.Should().Be(InvestorCategory.OtherCorporateInvestor);
-        capturedProfile.CompanyLegalName.Should().Be("Acme Fundraise Ltd");
-        capturedProfile.RegistrationNumber.Should().Be("RC776655");
+        _userRepositoryMock.Verify(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -586,8 +554,5 @@ public class SignUpCommandHandlerTests
 
         await _handler.Handle(command, CancellationToken.None);
 
-        _userInvestmentProfileRepositoryMock.Verify(
-            x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()),
-            Times.Never);
     }
 }

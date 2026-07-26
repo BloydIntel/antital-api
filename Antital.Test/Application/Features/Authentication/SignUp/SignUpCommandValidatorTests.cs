@@ -125,7 +125,6 @@ public class SignUpCommandValidatorTests
         var command = CreateValidCommand() with
         {
             UserType = "CorporateInvestor",
-            CorporateInvestorCategory = "QualifiedInstitutionalInvestor",
             CompanyLegalName = "Acme Ventures Ltd",
             TradingBrandName = "Acme",
             RegistrationType = "LTD",
@@ -153,33 +152,31 @@ public class SignUpCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_CorporateUserType_WithoutCorporateCategory_ShouldHaveValidationError()
+    public void Validate_CorporateUserType_WithoutCorporateCategory_ShouldNotHaveValidationError()
     {
         var command = CreateValidCommand() with
         {
-            UserType = "CorporateInvestor",
-            CorporateInvestorCategory = null
+            UserType = "CorporateInvestor"
         };
 
         var result = _validator.TestValidate(command);
 
-        result.ShouldHaveValidationErrorFor(x => x)
-            .WithErrorMessage("CorporateInvestor signup requires corporate investor category: QualifiedInstitutionalInvestor or OtherCorporateInvestor.");
+        result.ShouldNotHaveValidationErrorFor(x => x);
     }
 
     [Fact]
-    public void Validate_NonCorporateUserType_WithCorporateCategory_ShouldHaveValidationError()
+    public void Validate_AnyUserType_WithCorporateCategory_ShouldHaveValidationError()
     {
         var command = CreateValidCommand() with
         {
-            UserType = "IndividualInvestor",
+            UserType = "CorporateInvestor",
             CorporateInvestorCategory = "QualifiedInstitutionalInvestor"
         };
 
         var result = _validator.TestValidate(command);
 
         result.ShouldHaveValidationErrorFor(x => x)
-            .WithErrorMessage("Corporate investor category is only allowed when user type is CorporateInvestor.");
+            .WithErrorMessage("Corporate investor category is captured during onboarding after email verification.");
     }
 
     #endregion

@@ -109,6 +109,45 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task SignUp_CorporateInvestorWithoutCategory_Returns200AndDefersProfileCreation()
+    {
+        var command = new SignUpCommand(
+            FirstName: "Jane",
+            LastName: "Corp",
+            Email: "jane.corp@example.com",
+            PreferredName: "JC",
+            PhoneNumber: "+2348012345678",
+            DateOfBirth: new DateTime(1990, 1, 1),
+            Nationality: "Nigerian",
+            CountryOfResidence: "Nigeria",
+            StateOfResidence: "Lagos",
+            ResidentialAddress: "123 Main Street, Victoria Island, Lagos",
+            Password: "SecurePass123!",
+            ConfirmPassword: "SecurePass123!",
+            HasAgreedToTerms: true,
+            UserType: "CorporateInvestor",
+            CompanyLegalName: "Acme Ventures Ltd",
+            TradingBrandName: "Acme Ventures"
+        );
+
+        var response = await _client.PostAsJsonAsync("/api/auth/signup", command);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<AuthResponseDto>>(JsonOptions);
+        result.Should().NotBeNull();
+        result!.Value.Should().NotBeNull();
+        result.Value!.UserType.Should().Be(UserTypeEnum.CorporateInvestor);
+        result.Value.IsEmailVerified.Should().BeFalse();
+
+        var savedUser = await _context.Users.SingleAsync(x => x.Email == command.Email);
+        savedUser.UserType.Should().Be(UserTypeEnum.CorporateInvestor);
+
+        var profile = await _context.UserInvestmentProfiles.SingleOrDefaultAsync(x => x.UserId == savedUser.Id);
+        profile.Should().BeNull();
+    }
+
+    [Fact]
     public async Task SignUp_DuplicateEmail_Returns409Conflict()
     {
         // Arrange

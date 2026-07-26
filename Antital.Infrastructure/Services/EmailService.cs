@@ -178,6 +178,17 @@ public class EmailService : IEmailService
 
     private async Task SendEmailAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken)
     {
+        _logger.LogInformation(
+            "Preparing email to {Email}. Subject={Subject}. Transport={Transport}. BaseUrl={BaseUrl}. FromEmail={FromEmail}. MailgunDomain={MailgunDomain}. SmtpHost={SmtpHost}:{SmtpPort}.",
+            to,
+            subject,
+            _settings.UseMailgunApi ? "MailgunApi" : "SMTP",
+            _settings.BaseUrl,
+            _settings.FromEmail,
+            _settings.MailgunDomain,
+            _settings.SmtpHost,
+            _settings.SmtpPort);
+
         if (_settings.UseMailgunApi)
         {
             await SendViaMailgunAsync(to, subject, htmlBody, cancellationToken);
@@ -186,7 +197,14 @@ public class EmailService : IEmailService
 
         if (string.IsNullOrWhiteSpace(_settings.SmtpHost))
         {
-            _logger.LogWarning("Email to {Email} skipped: configure Mailgun API or SMTP.", to);
+            _logger.LogWarning(
+                "Email to {Email} skipped: configure Mailgun API or SMTP. MailgunDomain={MailgunDomain}, MailgunApiKeyConfigured={HasMailgunApiKey}, SmtpHost={SmtpHost}, SmtpUser={SmtpUser}, FromEmail={FromEmail}.",
+                to,
+                _settings.MailgunDomain,
+                !string.IsNullOrWhiteSpace(_settings.MailgunApiKey),
+                _settings.SmtpHost,
+                _settings.SmtpUser,
+                _settings.FromEmail);
             return;
         }
 
@@ -219,6 +237,12 @@ public class EmailService : IEmailService
 
         try
         {
+            _logger.LogInformation(
+                "Sending email to {Email} via Mailgun. RequestUri={RequestUri}. FromEmail={FromEmail}.",
+                to,
+                requestUri,
+                _settings.FromEmail);
+
             var client = _httpClientFactory.CreateClient(MailgunHttpClientName);
             using var response = await client.SendAsync(request, cancellationToken);
             if (response.IsSuccessStatusCode)
@@ -261,12 +285,29 @@ public class EmailService : IEmailService
 
         try
         {
+            _logger.LogInformation(
+                "Sending email to {Email} via SMTP. Host={SmtpHost}. Port={SmtpPort}. User={SmtpUser}. EnableSsl={EnableSsl}. FromEmail={FromEmail}.",
+                to,
+                _settings.SmtpHost,
+                _settings.SmtpPort,
+                _settings.SmtpUser,
+                client.EnableSsl,
+                _settings.FromEmail);
+
             await client.SendMailAsync(message, cancellationToken);
             _logger.LogInformation("Email sent to {Email} via SMTP.", to);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {Email} via SMTP.", to);
+            _logger.LogError(
+                ex,
+                "Failed to send email to {Email} via SMTP. Host={SmtpHost}. Port={SmtpPort}. User={SmtpUser}. EnableSsl={EnableSsl}. FromEmail={FromEmail}.",
+                to,
+                _settings.SmtpHost,
+                _settings.SmtpPort,
+                _settings.SmtpUser,
+                client.EnableSsl,
+                _settings.FromEmail);
         }
     }
 

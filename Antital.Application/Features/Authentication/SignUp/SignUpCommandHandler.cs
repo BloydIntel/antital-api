@@ -13,7 +13,6 @@ namespace Antital.Application.Features.Authentication.SignUp;
 
 public class SignUpCommandHandler(
     IUserRepository userRepository,
-    IUserInvestmentProfileRepository userInvestmentProfileRepository,
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
     IEmailService emailService,
@@ -83,38 +82,6 @@ public class SignUpCommandHandler(
         // 6. Save to database via UnitOfWork
         await userRepository.AddAsync(user, cancellationToken);
 
-        if (userType == UserTypeEnum.CorporateInvestor || userType == UserTypeEnum.FundRaiser)
-        {
-            var investorCategory = userType == UserTypeEnum.CorporateInvestor
-                ? MapCorporateInvestorCategory(request.CorporateInvestorCategory)
-                : InvestorCategory.OtherCorporateInvestor;
-            var profile = new UserInvestmentProfile
-            {
-                User = user,
-                InvestorCategory = investorCategory,
-                CompanyLegalName = request.CompanyLegalName,
-                TradingBrandName = request.TradingBrandName,
-                RegistrationType = request.RegistrationType,
-                RegistrationNumber = request.RegistrationNumber,
-                CompanyLoginEmail = request.CompanyLoginEmail,
-                DateOfRegistration = request.DateOfRegistration,
-                CompanyWebsite = request.CompanyWebsite,
-                BusinessAddress = request.BusinessAddress,
-                RegisteredAddress = request.RegisteredAddress,
-                CompanyEmail = request.CompanyEmail,
-                CompanyPhone = request.CompanyPhone,
-                RepresentativeFullName = request.RepresentativeFullName,
-                RepresentativeJobTitle = request.RepresentativeJobTitle,
-                RepresentativePhoneNumber = request.RepresentativePhoneNumber,
-                RepresentativeDateOfBirth = request.RepresentativeDateOfBirth,
-                RepresentativeEmail = request.RepresentativeEmail,
-                RepresentativeNationality = request.RepresentativeNationality,
-                RepresentativeCountryOfResidence = request.RepresentativeCountryOfResidence,
-                RepresentativeAddress = request.RepresentativeAddress
-            };
-            await userInvestmentProfileRepository.AddAsync(profile, cancellationToken);
-        }
-
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         // 7. Send verification email via IEmailService
@@ -158,31 +125,4 @@ public class SignUpCommandHandler(
                 { "UserType", ["User type must be IndividualInvestor, CorporateInvestor, or Fundraiser."] }
             });
     }
-
-    private static InvestorCategory MapCorporateInvestorCategory(string? category)
-    {
-        if (string.IsNullOrWhiteSpace(category))
-        {
-            throw new BadRequestException(
-                "Invalid corporate investor category.",
-                new Dictionary<string, string[]>
-                {
-                    { "CorporateInvestorCategory", ["Corporate investor category is required for CorporateInvestor signup."] }
-                });
-        }
-
-        if (category.Equals("QualifiedInstitutionalInvestor", StringComparison.OrdinalIgnoreCase))
-            return InvestorCategory.QualifiedInstitutionalInvestor;
-
-        if (category.Equals("OtherCorporateInvestor", StringComparison.OrdinalIgnoreCase))
-            return InvestorCategory.OtherCorporateInvestor;
-
-        throw new BadRequestException(
-            "Invalid corporate investor category.",
-            new Dictionary<string, string[]>
-            {
-                { "CorporateInvestorCategory", ["Corporate investor category must be QualifiedInstitutionalInvestor or OtherCorporateInvestor."] }
-            });
-    }
-
 }
