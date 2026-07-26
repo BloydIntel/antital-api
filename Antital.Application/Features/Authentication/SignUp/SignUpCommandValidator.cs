@@ -82,12 +82,8 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
             .WithMessage("Company signup fields are only allowed when user type is CorporateInvestor or Fundraiser.");
 
         RuleFor(x => x)
-            .Must(HaveValidCorporateCategoryIfCorporateUserType)
-            .WithMessage("CorporateInvestor signup requires corporate investor category: QualifiedInstitutionalInvestor or OtherCorporateInvestor.");
-
-        RuleFor(x => x)
-            .Must(NotProvideCorporateCategoryForNonCorporateUserType)
-            .WithMessage("Corporate investor category is only allowed when user type is CorporateInvestor.");
+            .Must(NotProvideCorporateCategoryAtSignup)
+            .WithMessage("Corporate investor category is captured during onboarding after email verification.");
     }
 
     private static bool BeValidPassword(string? password)
@@ -152,23 +148,6 @@ public class SignUpCommandValidator : AbstractValidator<SignUpCommand>
             && string.IsNullOrWhiteSpace(request.RepresentativeAddress);
     }
 
-    private static bool HaveValidCorporateCategoryIfCorporateUserType(SignUpCommand request)
-    {
-        if (!request.UserType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        return request.CorporateInvestorCategory != null
-            && (
-                request.CorporateInvestorCategory.Equals("QualifiedInstitutionalInvestor", StringComparison.OrdinalIgnoreCase)
-                || request.CorporateInvestorCategory.Equals("OtherCorporateInvestor", StringComparison.OrdinalIgnoreCase)
-            );
-    }
-
-    private static bool NotProvideCorporateCategoryForNonCorporateUserType(SignUpCommand request)
-    {
-        if (request.UserType.Equals("CorporateInvestor", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        return string.IsNullOrWhiteSpace(request.CorporateInvestorCategory);
-    }
+    private static bool NotProvideCorporateCategoryAtSignup(SignUpCommand request) =>
+        string.IsNullOrWhiteSpace(request.CorporateInvestorCategory);
 }
