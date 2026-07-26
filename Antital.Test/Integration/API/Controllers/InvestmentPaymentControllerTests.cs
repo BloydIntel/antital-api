@@ -70,6 +70,30 @@ public class InvestmentPaymentControllerTests : IClassFixture<CustomWebApplicati
     }
 
     [Fact]
+    public async Task InitializePayment_CorporateInvestor_ValidOrder_ReturnsPaystackSession()
+    {
+        var (user, offering) = await SeedEligibleInvestorWithOfferingAsync(
+            "payment-corporate@example.com",
+            UserTypeEnum.CorporateInvestor,
+            OnboardingFlowType.CorporateInvestor);
+        var orderId = await CreateOrderAsync(user, offering.Id);
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.PostAsJsonAsync(
+            $"/api/investments/orders/{orderId}/pay",
+            new InitializeInvestmentPaymentRequest("card"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<InitializeInvestmentPaymentResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.AuthorizationUrl.Should().StartWith("https://checkout.paystack.com/");
+        result.Value.AccessCode.Should().NotBeNullOrWhiteSpace();
+        result.Value.Reference.Should().StartWith($"ANT-ORD-{orderId}-");
+        result.Value.PublicKey.Should().Be(_config["Paystack:PublicKey"]);
+    }
+
+    [Fact]
     public async Task InitializePayment_InvalidChannel_Returns400()
     {
         var (user, offering) = await SeedEligibleInvestorWithOfferingAsync();
@@ -200,6 +224,44 @@ public class InvestmentPaymentControllerTests : IClassFixture<CustomWebApplicati
     }
 
     [Fact]
+    public async Task PaystackWebhook_CorporateInvestor_AddsHoldingToDashboard()
+    {
+        var (user, offering) = await SeedEligibleInvestorWithOfferingAsync(
+            "payment-corporate-dashboard@example.com",
+            UserTypeEnum.CorporateInvestor,
+            OnboardingFlowType.CorporateInvestor);
+        var orderId = await CreateOrderAsync(user, offering.Id);
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var payResponse = await authClient.PostAsJsonAsync(
+            $"/api/investments/orders/{orderId}/pay",
+            new InitializeInvestmentPaymentRequest("card"));
+        var payResult = await payResponse.Content.ReadFromJsonAsync<Result<InitializeInvestmentPaymentResponse>>(JsonOptions);
+        var reference = payResult!.Value!.Reference;
+
+        var payload = PaystackTestHelper.BuildChargeSuccessPayload(reference, 102_500);
+        var signature = PaystackTestHelper.ComputeSignature(payload, PaystackTestHelper.TestSecretKey);
+        using var webhookRequest = new HttpRequestMessage(HttpMethod.Post, "/api/payments/paystack/webhook")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+        webhookRequest.Headers.Add("x-paystack-signature", signature);
+        (await _client.SendAsync(webhookRequest)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var dashboardResponse = await authClient.GetAsync("/api/investors/me/dashboard?period=this-month");
+        dashboardResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var dashboard = await dashboardResponse.Content.ReadFromJsonAsync<Result<InvestorDashboardResponse>>(JsonOptions);
+        dashboard!.IsSuccess.Should().BeTrue();
+        dashboard.Value!.Holdings.Should().ContainSingle(h =>
+            h.Slug == offering.Slug
+            && h.Invested == 1000m
+            && h.UnitHolding == 10
+            && h.RaisedAmount == 101_000m);
+        dashboard.Value.Summary.TotalInvested.Should().Be(1000m);
+    }
+
+    [Fact]
     public async Task PaystackWebhook_DuplicateDelivery_IsIdempotent()
     {
         var (user, offering) = await SeedEligibleInvestorWithOfferingAsync();
@@ -298,23 +360,26 @@ public class InvestmentPaymentControllerTests : IClassFixture<CustomWebApplicati
         return result!.Value!.OrderId;
     }
 
-    private async Task<(User User, InvestmentOffering Offering)> SeedEligibleInvestorWithOfferingAsync()
+    private async Task<(User User, InvestmentOffering Offering)> SeedEligibleInvestorWithOfferingAsync(
+        string email = "payment-investor@example.com",
+        UserTypeEnum userType = UserTypeEnum.IndividualInvestor,
+        OnboardingFlowType flowType = OnboardingFlowType.IndividualInvestor)
     {
-        var user = SeedUser("payment-investor@example.com");
+        var user = SeedUser(email, userType);
         await _context.SaveChangesAsync();
-        SeedSubmittedOnboarding(user.Id);
+        SeedSubmittedOnboarding(user.Id, flowType);
         var offering = await SeedOfferingAsync();
         await _context.SaveChangesAsync();
         return (user, offering);
     }
 
-    private User SeedUser(string email)
+    private User SeedUser(string email, UserTypeEnum userType = UserTypeEnum.IndividualInvestor)
     {
         var user = new User
         {
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
-            UserType = UserTypeEnum.IndividualInvestor,
+            UserType = userType,
             IsEmailVerified = true,
             FirstName = "Jane",
             LastName = "Investor",
@@ -330,12 +395,14 @@ public class InvestmentPaymentControllerTests : IClassFixture<CustomWebApplicati
         return user;
     }
 
-    private void SeedSubmittedOnboarding(int userId)
+    private void SeedSubmittedOnboarding(
+        int userId,
+        OnboardingFlowType flowType = OnboardingFlowType.IndividualInvestor)
     {
         var onboarding = new UserOnboarding
         {
             UserId = userId,
-            FlowType = OnboardingFlowType.IndividualInvestor,
+            FlowType = flowType,
             CurrentStep = OnboardingStep.Kyc,
             Status = OnboardingStatus.Submitted,
             SubmittedAt = DateTime.UtcNow,

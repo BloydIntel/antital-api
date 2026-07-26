@@ -86,6 +86,25 @@ public class PaymentMethodsControllerTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task AddPaymentMethod_CorporateInvestor_FirstMethod_BecomesDefault()
+    {
+        var user = SeedUser("pm-corporate-add@example.com", UserTypeEnum.CorporateInvestor);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var response = await authClient.PostAsJsonAsync(
+            "/api/investors/me/payment-methods",
+            new AddPaymentMethodRequest("Bank", "Corporate GTBank Account", "Guaranty Trust Bank", "5678"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Result<PaymentMethodResponse>>(JsonOptions);
+        result!.IsSuccess.Should().BeTrue();
+        result.Value!.Item.Type.Should().Be("Bank");
+        result.Value.Item.Title.Should().Be("Corporate GTBank Account");
+        result.Value.Item.IsDefault.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task AddPaymentMethod_InvalidLast4_Returns400()
     {
         var user = SeedUser("pm-invalid@example.com");
@@ -114,6 +133,38 @@ public class PaymentMethodsControllerTests : IClassFixture<CustomWebApplicationF
         var second = await authClient.PostAsJsonAsync(
             "/api/investors/me/payment-methods",
             new AddPaymentMethodRequest("Card", "Visa Debit Card", "Visa", "4532"));
+        var secondResult = await second.Content.ReadFromJsonAsync<Result<PaymentMethodResponse>>(JsonOptions);
+
+        var response = await authClient.PatchAsync(
+            $"/api/investors/me/payment-methods/{secondResult!.Value!.Item.Id}/default",
+            null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var setDefaultResult = await response.Content.ReadFromJsonAsync<Result<PaymentMethodResponse>>(JsonOptions);
+        setDefaultResult!.Value!.Item.IsDefault.Should().BeTrue();
+
+        var listResponse = await authClient.GetAsync("/api/investors/me/payment-methods");
+        var listResult = await listResponse.Content.ReadFromJsonAsync<Result<PaymentMethodsResponse>>(JsonOptions);
+        listResult!.Value!.Items.Should().HaveCount(2);
+        listResult.Value.Items.Single(i => i.Id == firstResult!.Value!.Item.Id).IsDefault.Should().BeFalse();
+        listResult.Value.Items.Single(i => i.Id == secondResult.Value!.Item.Id).IsDefault.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SetDefaultPaymentMethod_CorporateInvestor_UpdatesDefault()
+    {
+        var user = SeedUser("pm-corporate-default@example.com", UserTypeEnum.CorporateInvestor);
+        await _context.SaveChangesAsync();
+
+        using var authClient = CreateAuthorizedClient(user.Id, user.Email);
+        var first = await authClient.PostAsJsonAsync(
+            "/api/investors/me/payment-methods",
+            new AddPaymentMethodRequest("Bank", "Corporate GTBank Account", "Guaranty Trust Bank", "5678"));
+        var firstResult = await first.Content.ReadFromJsonAsync<Result<PaymentMethodResponse>>(JsonOptions);
+
+        var second = await authClient.PostAsJsonAsync(
+            "/api/investors/me/payment-methods",
+            new AddPaymentMethodRequest("Card", "Corporate Visa Card", "Visa", "4532"));
         var secondResult = await second.Content.ReadFromJsonAsync<Result<PaymentMethodResponse>>(JsonOptions);
 
         var response = await authClient.PatchAsync(
@@ -171,13 +222,13 @@ public class PaymentMethodsControllerTests : IClassFixture<CustomWebApplicationF
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    private User SeedUser(string email)
+    private User SeedUser(string email, UserTypeEnum userType = UserTypeEnum.IndividualInvestor)
     {
         var user = new User
         {
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
-            UserType = UserTypeEnum.IndividualInvestor,
+            UserType = userType,
             IsEmailVerified = true,
             FirstName = "Jane",
             LastName = "Okonkwo",
