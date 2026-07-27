@@ -19,6 +19,7 @@ public class SaveOnboardingCommandHandlerTests
     private readonly Mock<IUserInvestmentProfileRepository> _profileRepoMock = new();
     private readonly Mock<IUserKycRepository> _kycRepoMock = new();
     private readonly Mock<IKycVerificationService> _kycVerificationServiceMock = new();
+    private readonly Mock<ICompanyVerificationService> _companyVerificationServiceMock = new();
     private readonly SaveOnboardingCommandHandler _handler;
 
     private static readonly User VerifiedUser = new()
@@ -46,7 +47,8 @@ public class SaveOnboardingCommandHandlerTests
             _onboardingRepoMock.Object,
             _profileRepoMock.Object,
             _kycRepoMock.Object,
-            _kycVerificationServiceMock.Object
+            _kycVerificationServiceMock.Object,
+            _companyVerificationServiceMock.Object
         );
         _userAccessMock.Setup(x => x.RequireVerifiedUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync((1, VerifiedUser));
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
@@ -58,6 +60,24 @@ public class SaveOnboardingCommandHandlerTests
                 input.SelfieVerificationPathOrKey,
                 input.IncomeVerificationPathOrKey,
                 null, null, null, null));
+        _companyVerificationServiceMock
+            .Setup(x => x.VerifyCorporateCompanyAsync(It.IsAny<CorporateCompanyVerificationInput>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CompanyVerificationResult(
+                VerifiedCompanyName: null,
+                VerifiedRegistrationNumber: null,
+                VerifiedCompanyType: null,
+                VerificationStatus: "Bypassed",
+                VerifiedAt: null,
+                IncorporationDate: null));
+        _companyVerificationServiceMock
+            .Setup(x => x.VerifyFundraiserCompanyAsync(It.IsAny<FundraiserCompanyVerificationInput>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CompanyVerificationResult(
+                VerifiedCompanyName: null,
+                VerifiedRegistrationNumber: null,
+                VerifiedCompanyType: null,
+                VerificationStatus: "Bypassed",
+                VerifiedAt: null,
+                IncorporationDate: null));
     }
 
     [Fact]
@@ -248,6 +268,12 @@ public class SaveOnboardingCommandHandlerTests
             p.RepresentativeJobTitle == "Director" &&
             p.RepresentativePhoneNumber == "+2348098765432" &&
             p.RepresentativeEmail == "jane@acmeventures.com"), It.IsAny<CancellationToken>()), Times.Once);
+        _companyVerificationServiceMock.Verify(x => x.VerifyCorporateCompanyAsync(
+            It.Is<CorporateCompanyVerificationInput>(i =>
+                i.CompanyLegalName == "Acme Ventures Limited" &&
+                i.RegistrationType == "LTD" &&
+                i.RegistrationNumber == "RC123456"),
+            It.IsAny<CancellationToken>()), Times.Once);
         _onboardingRepoMock.Verify(x => x.UpdateAsync(It.Is<UserOnboarding>(e => e.CurrentStep == OnboardingStep.InvestorCategory), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -316,6 +342,12 @@ public class SaveOnboardingCommandHandlerTests
             p.RegisteredAddress == "23A Unity Crescent Lekki" &&
             p.CompanyEmail == "info@acmefundraise.com" &&
             p.CompanyPhone == "+2348012345678"), It.IsAny<CancellationToken>()), Times.Once);
+        _companyVerificationServiceMock.Verify(x => x.VerifyFundraiserCompanyAsync(
+            It.Is<FundraiserCompanyVerificationInput>(i =>
+                i.CompanyLegalName == "Acme Fundraise Limited" &&
+                i.RegistrationType == "LTD" &&
+                i.RegistrationNumber == "RC123456"),
+            It.IsAny<CancellationToken>()), Times.Once);
         _onboardingRepoMock.Verify(x => x.UpdateAsync(It.Is<UserOnboarding>(e => e.CurrentStep == OnboardingStep.InvestorCategory), It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -12,6 +12,26 @@ public sealed class AuditingDojahClient(
     ICurrentUser currentUser
 ) : IDojahClient
 {
+    public async Task<DojahCacLookupResult> LookupCacAsync(
+        string registrationNumber,
+        string companyType,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await inner.LookupCacAsync(registrationNumber, companyType, cancellationToken);
+        await recorder.RecordAsync(
+            new ExternalProviderCheckEntry(
+                ExternalProviderNames.Dojah,
+                DojahOperations.CacLookup,
+                TryResolveUserId(),
+                ExternalReference: null,
+                result.IsSuccess,
+                result.StatusCode,
+                TruncateError(result.ErrorMessage),
+                ExternalProviderFingerprint.Mask(registrationNumber)),
+            cancellationToken);
+        return result;
+    }
+
     public async Task<DojahIdentityLookupResult> LookupBvnAsync(
         string bvn,
         CancellationToken cancellationToken = default)

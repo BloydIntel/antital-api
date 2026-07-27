@@ -9,6 +9,7 @@ using Antital.Infrastructure;
 using Antital.Infrastructure.Integrations.Paystack;
 using Antital.Test.Fakes;
 using Antital.Test.Helpers;
+using Antital.Domain.Configuration;
 using BuildingBlocks.Infrastructure.Implementations;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -21,6 +22,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
 {
     public FakePaystackClient FakePaystackClient { get; } = new();
     public FakeFileUploadService FakeFileUploadService { get; } = new();
+    public FakeDojahClient FakeDojahClient { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -58,6 +60,12 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
                 { "Cloudinary:ApiKey", "test-key" },
                 { "Cloudinary:ApiSecret", "test-secret" },
                 { "Cloudinary:FolderName", "antital-test" },
+                { "Dojah:Enabled", "true" },
+                { "Dojah:AppId", "test-app" },
+                { "Dojah:PublicKey", "test-public" },
+                { "Dojah:PrivateKey", "test-private" },
+                { "Dojah:WidgetId", "test-widget" },
+                { "Dojah:BaseUrl", "https://sandbox.dojah.io" },
             });
         });
 
@@ -104,6 +112,9 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<Progr
 
             services.RemoveAll(typeof(IFileUploadService));
             services.AddSingleton<IFileUploadService>(FakeFileUploadService);
+
+            services.RemoveAll(typeof(IDojahClient));
+            services.AddSingleton<IDojahClient>(FakeDojahClient);
         });
         
         // Workaround: Configure Kestrel to use a real server instead of TestServer

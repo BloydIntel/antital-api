@@ -14,6 +14,30 @@ public sealed class DojahClient(
     ILogger<DojahClient> logger
 ) : IDojahClient
 {
+    public Task<DojahCacLookupResult> LookupCacAsync(
+        string registrationNumber,
+        string companyType,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(registrationNumber))
+        {
+            return Task.FromResult(
+                DojahCacLookupResult.Fail(400, null, "Registration number is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(companyType))
+        {
+            return Task.FromResult(
+                DojahCacLookupResult.Fail(400, null, "Company type is required."));
+        }
+
+        var path =
+            $"/api/v1/kyc/cac?rc_number={Uri.EscapeDataString(registrationNumber.Trim())}" +
+            $"&company_type={Uri.EscapeDataString(companyType.Trim())}";
+
+        return SendCacAsync(path, cancellationToken);
+    }
+
     public Task<DojahIdentityLookupResult> LookupBvnAsync(
         string bvn,
         CancellationToken cancellationToken = default)
@@ -273,6 +297,19 @@ public sealed class DojahClient(
         return ParseIdentityEntity(raw);
     }
 
+    private async Task<DojahCacLookupResult> SendCacAsync(
+        string pathAndQuery,
+        CancellationToken cancellationToken)
+    {
+        var raw = await SendRawAsync(HttpMethod.Get, pathAndQuery, null, "CAC lookup", cancellationToken);
+        if (!raw.IsSuccess)
+        {
+            return DojahCacLookupResult.Fail(raw.StatusCode, raw.RawBody, raw.ErrorMessage ?? "Dojah CAC lookup failed.");
+        }
+
+        return ParseCacEntity(raw);
+    }
+
     private async Task<DojahLookupResult> SendRawAsync(
         HttpMethod method,
         string pathAndQuery,
@@ -373,6 +410,48 @@ public sealed class DojahClient(
         catch (JsonException)
         {
             return DojahIdentityLookupResult.Fail(raw.StatusCode, raw.RawBody, "Dojah response was not valid JSON.");
+        }
+    }
+
+    internal static DojahCacLookupResult ParseCacEntity(DojahLookupResult raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw.RawBody))
+        {
+            return DojahCacLookupResult.Fail(raw.StatusCode, raw.RawBody, "Dojah returned an empty body.");
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(raw.RawBody);
+            if (!document.RootElement.TryGetProperty("entity", out var entity) ||
+                entity.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            {
+                return DojahCacLookupResult.Fail(
+                    raw.StatusCode,
+                    raw.RawBody,
+                    "Dojah response did not include an entity.");
+            }
+
+            var companyName = ReadString(entity, "company_name", "companyName", "business_name", "businessName", "name");
+            var registrationNumber = ReadString(entity, "rc_number", "rcNumber", "registration_number", "registrationNumber");
+            var companyType = ReadString(entity, "company_type", "companyType");
+            var status = ReadString(entity, "status", "registration_status", "registrationStatus");
+            var incorporationDate = ReadString(entity, "date_of_registration", "dateOfRegistration", "incorporation_date", "incorporationDate");
+
+            return new DojahCacLookupResult(
+                true,
+                raw.StatusCode,
+                companyName,
+                registrationNumber,
+                companyType,
+                status,
+                incorporationDate,
+                raw.RawBody,
+                null);
+        }
+        catch (JsonException)
+        {
+            return DojahCacLookupResult.Fail(raw.StatusCode, raw.RawBody, "Dojah response was not valid JSON.");
         }
     }
 

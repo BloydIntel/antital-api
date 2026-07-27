@@ -13,6 +13,7 @@ namespace Antital.Application.Features.Authentication.SignUp;
 
 public class SignUpCommandHandler(
     IUserRepository userRepository,
+    IUserInvestmentProfileRepository userInvestmentProfileRepository,
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
     IEmailService emailService,
@@ -81,6 +82,13 @@ public class SignUpCommandHandler(
 
         // 6. Save to database via UnitOfWork
         await userRepository.AddAsync(user, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var profile = BuildProfile(user.Id, userType, request);
+        if (profile != null)
+        {
+            await userInvestmentProfileRepository.AddAsync(profile, cancellationToken);
+        }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -105,6 +113,44 @@ public class SignUpCommandHandler(
         result.AddValue(response);
         result.OK();
         return result;
+    }
+
+    private static UserInvestmentProfile? BuildProfile(int userId, UserTypeEnum userType, SignUpCommand request)
+    {
+        if (userType != UserTypeEnum.CorporateInvestor && userType != UserTypeEnum.FundRaiser)
+        {
+            return null;
+        }
+
+        var profile = new UserInvestmentProfile
+        {
+            UserId = userId,
+            CompanyLegalName = request.CompanyLegalName,
+            TradingBrandName = request.TradingBrandName,
+            RegistrationType = request.RegistrationType,
+            RegistrationNumber = request.RegistrationNumber,
+            CompanyLoginEmail = request.CompanyLoginEmail,
+            DateOfRegistration = request.DateOfRegistration,
+            CompanyWebsite = request.CompanyWebsite,
+            BusinessAddress = request.BusinessAddress,
+            RegisteredAddress = request.RegisteredAddress,
+            CompanyEmail = request.CompanyEmail,
+            CompanyPhone = request.CompanyPhone,
+        };
+
+        if (userType == UserTypeEnum.CorporateInvestor)
+        {
+            profile.RepresentativeFullName = request.RepresentativeFullName;
+            profile.RepresentativeJobTitle = request.RepresentativeJobTitle;
+            profile.RepresentativePhoneNumber = request.RepresentativePhoneNumber;
+            profile.RepresentativeDateOfBirth = request.RepresentativeDateOfBirth;
+            profile.RepresentativeEmail = request.RepresentativeEmail;
+            profile.RepresentativeNationality = request.RepresentativeNationality;
+            profile.RepresentativeCountryOfResidence = request.RepresentativeCountryOfResidence;
+            profile.RepresentativeAddress = request.RepresentativeAddress;
+        }
+
+        return profile;
     }
 
     private static UserTypeEnum MapUserType(string userType)
