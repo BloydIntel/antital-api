@@ -110,7 +110,7 @@ public class SignUpCommandHandlerTests
         _userRepositoryMock.Verify(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>()), Times.Once);
         _passwordHasherMock.Verify(x => x.HashPassword(command.Password), Times.Once);
         _userRepositoryMock.Verify(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
-        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
         _emailServiceMock.Verify(x => x.SendVerificationEmailAsync(command.Email, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
         _jwtTokenServiceMock.Verify(x => x.GenerateToken(It.IsAny<User>()), Times.Once);
     }
