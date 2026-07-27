@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using Antital.Application.DTOs.Onboarding;
 using Antital.Domain.Enums;
+using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
 using Antital.Infrastructure;
 using Antital.Test.Integration;
@@ -273,9 +274,66 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task Put_FundRaiserCompanyStep_WhenCacNameMismatches_Returns400()
+    {
+        _factory.FakeDojahClient.LookupCacHandler = (_, _) => new DojahCacLookupResult(
+            true, 200, "Different Company Limited", "RC123456", "COMPANY", "ACTIVE", "2020-01-15", "{}", null);
+
+        try
+        {
+            var user = SeedUser(email: "fundraiser-company-mismatch@example.com", userType: UserTypeEnum.FundRaiser);
+            await _context.SaveChangesAsync();
+
+            var onboarding = new UserOnboarding
+            {
+                UserId = user.Id,
+                FlowType = OnboardingFlowType.Startup,
+                CurrentStep = OnboardingStep.InvestorCategory,
+                Status = OnboardingStatus.Draft
+            };
+            _context.UserOnboardings.Add(onboarding);
+            await _context.SaveChangesAsync();
+
+            using var authClient = CreateAuthorizedClient(userId: user.Id);
+
+            var request = new SaveOnboardingRequest(
+                Step: OnboardingStep.InvestorCategory,
+                InvestorCategoryPayload: null,
+                InvestmentProfilePayload: null,
+                KycPayload: null,
+                FundRaiserCompanyPayload: new FundRaiserCompanyPayload(
+                    CompanyLegalName: "Acme Fundraise Limited",
+                    TradingBrandName: "Acme Raise",
+                    RegistrationType: "LTD",
+                    RegistrationNumber: "RC123456",
+                    CompanyLoginEmail: "ops@acmefundraise.com",
+                    DateOfRegistration: new DateTime(2020, 1, 15),
+                    CompanyWebsite: "https://acmefundraise.com",
+                    BusinessAddress: "23A Unity Crescent Lekki",
+                    RegisteredAddress: "23A Unity Crescent Lekki",
+                    CompanyEmail: "info@acmefundraise.com",
+                    CompanyPhone: "+2348012345678"
+                )
+            );
+
+            var putResponse = await authClient.PutAsJsonAsync("/api/onboarding", request, JsonOptions);
+            putResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            _factory.FakeDojahClient.LookupCacHandler = null;
+        }
+    }
+
+    [Fact]
     public async Task Put_FundRaiserKycStep_WithRepresentativeAndBusinessDocuments_SavesAndHydratesOnGet()
     {
-        var user = SeedUser(email: "fundraiser-kyc@example.com", userType: UserTypeEnum.FundRaiser);
+        var user = SeedUser(
+            email: "fundraiser-kyc@example.com",
+            firstName: "Charielong",
+            lastName: "Hairs",
+            dateOfBirth: new DateTime(1985, 4, 10),
+            userType: UserTypeEnum.FundRaiser);
         await _context.SaveChangesAsync();
 
         var onboarding = new UserOnboarding
@@ -318,7 +376,7 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
                 InvestmentRound: "Pre-Seed Round"
             ),
             FundRaiserRepresentativePayload: new FundRaiserRepresentativePayload(
-                RepresentativeFullName: "John Doe",
+                RepresentativeFullName: "John Adamu",
                 RepresentativeJobTitle: "Director",
                 RepresentativePhoneNumber: "+2348011111111",
                 RepresentativeDateOfBirth: new DateTime(1990, 1, 1),
@@ -337,11 +395,12 @@ public class OnboardingControllerTests : IClassFixture<CustomWebApplicationFacto
         var getResult = await getResponse.Content.ReadFromJsonAsync<Result<OnboardingResponse>>(JsonOptions);
 
         getResult!.Value!.FundRaiserProfile.Should().NotBeNull();
-        getResult.Value.FundRaiserProfile!.Representative!.RepresentativeFullName.Should().Be("John Doe");
+        getResult.Value.FundRaiserProfile!.Representative!.RepresentativeFullName.Should().Be("John Adamu");
         getResult.Value.FundRaiserProfile.BusinessDocuments!.FundraisingDeckDocumentPathOrKey.Should().Be("deck.png");
         getResult.Value.FundRaiserProfile.BusinessDocuments.FundingTarget.Should().Be(10_000_000m);
         getResult.Value.Kyc!.GovernmentIdDocumentPathOrKey.Should().Be("gov-id.png");
         getResult.Value.Kyc.ProofOfAddressDocumentPathOrKey.Should().Be("proof-of-address.png");
+        getResult.Value.Kyc.GovernmentIdCompleted.Should().BeTrue();
     }
 
     [Fact]

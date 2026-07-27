@@ -109,7 +109,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
-    public async Task SignUp_CorporateInvestorWithoutCategory_Returns200AndDefersProfileCreation()
+    public async Task SignUp_CorporateInvestorWithoutCategory_Returns200AndPersistsCompanyProfile()
     {
         var command = new SignUpCommand(
             FirstName: "Jane",
@@ -144,7 +144,56 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
         savedUser.UserType.Should().Be(UserTypeEnum.CorporateInvestor);
 
         var profile = await _context.UserInvestmentProfiles.SingleOrDefaultAsync(x => x.UserId == savedUser.Id);
-        profile.Should().BeNull();
+        profile.Should().NotBeNull();
+        profile!.CompanyLegalName.Should().Be("Acme Ventures Ltd");
+        profile.TradingBrandName.Should().Be("Acme Ventures");
+    }
+
+    [Fact]
+    public async Task SignUp_Fundraiser_Returns200AndPersistsCompanyProfile()
+    {
+        var command = new SignUpCommand(
+            FirstName: "Fundraiser",
+            LastName: "Business",
+            Email: "fundraiser.signup@example.com",
+            PreferredName: "Acme Raise",
+            PhoneNumber: null,
+            DateOfBirth: null,
+            Nationality: null,
+            CountryOfResidence: null,
+            StateOfResidence: null,
+            ResidentialAddress: null,
+            Password: "SecurePass123!",
+            ConfirmPassword: "SecurePass123!",
+            HasAgreedToTerms: true,
+            UserType: "Fundraiser",
+            CompanyLegalName: "Acme Fundraise Ltd",
+            TradingBrandName: "Acme Raise",
+            RegistrationType: "LTD",
+            RegistrationNumber: "RC998877",
+            CompanyLoginEmail: "ops@acmeraise.com",
+            DateOfRegistration: new DateTime(2021, 3, 4),
+            CompanyWebsite: "https://acmeraise.com",
+            BusinessAddress: "Lekki, Lagos",
+            RegisteredAddress: "Lekki, Lagos",
+            CompanyEmail: "hello@acmeraise.com",
+            CompanyPhone: "+2348012345678"
+        );
+
+        var response = await _client.PostAsJsonAsync("/api/auth/signup", command);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Result<AuthResponseDto>>(JsonOptions);
+        result.Should().NotBeNull();
+        result!.Value.Should().NotBeNull();
+        result.Value!.UserType.Should().Be(UserTypeEnum.FundRaiser);
+
+        var savedUser = await _context.Users.SingleAsync(x => x.Email == command.Email);
+        var profile = await _context.UserInvestmentProfiles.SingleOrDefaultAsync(x => x.UserId == savedUser.Id);
+        profile.Should().NotBeNull();
+        profile!.CompanyLegalName.Should().Be("Acme Fundraise Ltd");
+        profile.CompanyPhone.Should().Be("+2348012345678");
     }
 
     [Fact]
@@ -949,8 +998,10 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
 
     private void CleanupDatabase()
     {
-        // Delete all data in correct order (child tables first if any foreign keys exist)
-        // For now, we only have Users table
+        _context.UserKycs.RemoveRange(_context.UserKycs);
+        _context.UserInvestmentProfiles.RemoveRange(_context.UserInvestmentProfiles);
+        _context.UserOnboardings.RemoveRange(_context.UserOnboardings);
+        _context.SaveChanges();
         _context.Users.RemoveRange(_context.Users);
         _context.SaveChanges();
     }

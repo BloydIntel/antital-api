@@ -1,6 +1,7 @@
 using Antital.Domain.Configuration;
 using Antital.Domain.Enums;
 using Antital.Domain.Interfaces;
+using Antital.Domain.Models;
 using BuildingBlocks.Application.Exceptions;
 using Microsoft.Extensions.Options;
 
@@ -13,6 +14,7 @@ namespace Antital.Application.Services;
 public sealed class DojahKycVerificationService(
     IDojahClient dojahClient,
     IUserRepository userRepository,
+    IUserInvestmentProfileRepository userInvestmentProfileRepository,
     IOptions<DojahSettings> dojahOptions,
     PassThroughKycVerificationService passThrough
 ) : IKycVerificationService
@@ -30,6 +32,10 @@ public sealed class DojahKycVerificationService(
             ?? throw new BadRequestException(
                 "Unable to verify identity for this user.",
                 new Dictionary<string, string[]>());
+        var profile = user.UserType == UserTypeEnum.IndividualInvestor
+            ? null
+            : await userInvestmentProfileRepository.GetByUserIdAsync(input.UserId, cancellationToken);
+        var comparisonIdentity = ResolveComparisonIdentity(user, profile);
 
         var idType = (KycIdType)input.IdType;
         var idNumber = input.Nin?.Trim();
@@ -52,7 +58,7 @@ public sealed class DojahKycVerificationService(
             throw new BadRequestException("Identity verification failed.", errors);
         }
 
-        var idLookup = await LookupGovernmentIdAsync(idType, idNumber!, user.LastName, cancellationToken);
+        var idLookup = await LookupGovernmentIdAsync(idType, idNumber!, comparisonIdentity.LastName, cancellationToken);
         if (!idLookup.IsSuccess)
         {
             throw new BadRequestException(
@@ -63,8 +69,8 @@ public sealed class DojahKycVerificationService(
                 });
         }
 
-        if (!KycIdentityMatcher.NamesMatch(user.FirstName, user.LastName, idLookup.FirstName, idLookup.LastName)
-            || !KycIdentityMatcher.DatesOfBirthMatch(user.DateOfBirth, idLookup.DateOfBirth))
+        if (!KycIdentityMatcher.NamesMatch(comparisonIdentity.FirstName, comparisonIdentity.LastName, idLookup.FirstName, idLookup.LastName)
+            || !KycIdentityMatcher.DatesOfBirthMatch(comparisonIdentity.DateOfBirth, idLookup.DateOfBirth))
         {
             throw new BadRequestException(
                 "Identity verification failed.",
@@ -90,7 +96,7 @@ public sealed class DojahKycVerificationService(
 
         // Name-only for BVN: Dojah sandbox (and some live records) can return a different DOB
         // than NIN/passport for the same person. Government ID remains the DOB source of truth.
-        if (!KycIdentityMatcher.NamesMatch(user.FirstName, user.LastName, bvnLookup.FirstName, bvnLookup.LastName))
+        if (!KycIdentityMatcher.NamesMatch(comparisonIdentity.FirstName, comparisonIdentity.LastName, bvnLookup.FirstName, bvnLookup.LastName))
         {
             throw new BadRequestException(
                 "Identity verification failed.",
@@ -113,6 +119,38 @@ public sealed class DojahKycVerificationService(
         );
     }
 
+    private static ComparisonIdentity ResolveComparisonIdentity(User user, UserInvestmentProfile? profile)
+    {
+        if ((user.UserType == UserTypeEnum.FundRaiser || user.UserType == UserTypeEnum.CorporateInvestor)
+            && TryParseRepresentativeIdentity(profile, out var representativeIdentity))
+        {
+            return representativeIdentity;
+        }
+
+        return new ComparisonIdentity(user.FirstName, user.LastName, user.DateOfBirth);
+    }
+
+    private static bool TryParseRepresentativeIdentity(UserInvestmentProfile? profile, out ComparisonIdentity identity)
+    {
+        identity = default;
+
+        if (profile?.RepresentativeDateOfBirth == null || string.IsNullOrWhiteSpace(profile.RepresentativeFullName))
+        {
+            return false;
+        }
+
+        var tokens = profile.RepresentativeFullName
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (tokens.Length < 2)
+        {
+            return false;
+        }
+
+        identity = new ComparisonIdentity(tokens[0], tokens[^1], profile.RepresentativeDateOfBirth.Value);
+        return true;
+    }
+
     private Task<DojahIdentityLookupResult> LookupGovernmentIdAsync(
         KycIdType idType,
         string idNumber,
@@ -126,4 +164,6 @@ public sealed class DojahKycVerificationService(
             _ => Task.FromResult(
                 DojahIdentityLookupResult.Fail(400, null, "Unsupported ID type.")),
         };
+
+    private readonly record struct ComparisonIdentity(string FirstName, string LastName, DateTime DateOfBirth);
 }

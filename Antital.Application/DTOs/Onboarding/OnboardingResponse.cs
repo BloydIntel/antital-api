@@ -94,7 +94,13 @@ public record OnboardingCorporateCompanyDto(
     string? TradingBrandName,
     string? RegistrationType,
     string? RegistrationNumber,
-    string? CompanyLoginEmail
+    string? CompanyLoginEmail,
+    string? CacVerifiedCompanyName,
+    string? CacVerifiedRegistrationNumber,
+    string? CacVerifiedCompanyType,
+    string? CacVerificationStatus,
+    DateTime? CacVerifiedAt,
+    DateTime? CacIncorporationDate
 );
 
 public record OnboardingCorporateAddressDto(
@@ -151,7 +157,13 @@ public record OnboardingFundRaiserCompanyDto(
     string? BusinessAddress,
     string? RegisteredAddress,
     string? CompanyEmail,
-    string? CompanyPhone
+    string? CompanyPhone,
+    string? CacVerifiedCompanyName,
+    string? CacVerifiedRegistrationNumber,
+    string? CacVerifiedCompanyType,
+    string? CacVerificationStatus,
+    DateTime? CacVerifiedAt,
+    DateTime? CacIncorporationDate
 );
 
 public record OnboardingFundRaiserRepresentativeDto(

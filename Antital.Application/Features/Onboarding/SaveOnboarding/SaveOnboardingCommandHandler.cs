@@ -13,7 +13,8 @@ public class SaveOnboardingCommandHandler(
     IUserOnboardingRepository userOnboardingRepository,
     IUserInvestmentProfileRepository userInvestmentProfileRepository,
     IUserKycRepository userKycRepository,
-    IKycVerificationService kycVerificationService
+    IKycVerificationService kycVerificationService,
+    ICompanyVerificationService companyVerificationService
 ) : ICommandQueryHandler<SaveOnboardingCommand>
 {
     public async Task<Result> Handle(SaveOnboardingCommand request, CancellationToken cancellationToken)
@@ -74,6 +75,7 @@ public class SaveOnboardingCommandHandler(
 
                     if (request.KycPayload != null)
                     {
+                        await unitOfWork.SaveChangesAsync(cancellationToken);
                         await SaveKycAsync(userId, request.KycPayload, cancellationToken);
                     }
                 }
@@ -231,11 +233,20 @@ public class SaveOnboardingCommandHandler(
 
         if (companyPayload != null)
         {
+            var verification = await companyVerificationService.VerifyCorporateCompanyAsync(
+                new CorporateCompanyVerificationInput(
+                    companyPayload.CompanyLegalName,
+                    companyPayload.RegistrationType,
+                    companyPayload.RegistrationNumber,
+                    addressPayload?.DateOfRegistration),
+                cancellationToken);
+
             profile.CompanyLegalName = companyPayload.CompanyLegalName;
             profile.TradingBrandName = companyPayload.TradingBrandName;
             profile.RegistrationType = companyPayload.RegistrationType;
             profile.RegistrationNumber = companyPayload.RegistrationNumber;
             profile.CompanyLoginEmail = companyPayload.CompanyLoginEmail;
+            ApplyCompanyVerification(profile, verification);
         }
 
         if (addressPayload != null)
@@ -273,6 +284,14 @@ public class SaveOnboardingCommandHandler(
         var isNew = profile == null;
         profile ??= new UserInvestmentProfile { UserId = userId };
 
+        var verification = await companyVerificationService.VerifyFundraiserCompanyAsync(
+            new FundraiserCompanyVerificationInput(
+                payload.CompanyLegalName,
+                payload.RegistrationType,
+                payload.RegistrationNumber,
+                payload.DateOfRegistration),
+            cancellationToken);
+
         profile.CompanyLegalName = payload.CompanyLegalName;
         profile.TradingBrandName = payload.TradingBrandName;
         profile.RegistrationType = payload.RegistrationType;
@@ -284,6 +303,7 @@ public class SaveOnboardingCommandHandler(
         profile.RegisteredAddress = payload.RegisteredAddress;
         profile.CompanyEmail = payload.CompanyEmail;
         profile.CompanyPhone = payload.CompanyPhone;
+        ApplyCompanyVerification(profile, verification);
 
         if (isNew) { await userInvestmentProfileRepository.AddAsync(profile, cancellationToken); }
         else { await userInvestmentProfileRepository.UpdateAsync(profile, cancellationToken); }
@@ -343,6 +363,16 @@ public class SaveOnboardingCommandHandler(
         profile.AdequateLiquidityForLosses = payload.AdequateLiquidityForLosses;
         profile.AwareOfLimitedLiquidityHni = payload.AwareOfLimitedLiquidityHni;
         profile.ConfirmSecHniCriteria = payload.ConfirmSecHniCriteria;
+    }
+
+    private static void ApplyCompanyVerification(UserInvestmentProfile profile, CompanyVerificationResult verification)
+    {
+        profile.CacVerifiedCompanyName = verification.VerifiedCompanyName ?? profile.CacVerifiedCompanyName;
+        profile.CacVerifiedRegistrationNumber = verification.VerifiedRegistrationNumber ?? profile.CacVerifiedRegistrationNumber;
+        profile.CacVerifiedCompanyType = verification.VerifiedCompanyType ?? profile.CacVerifiedCompanyType;
+        profile.CacVerificationStatus = verification.VerificationStatus ?? profile.CacVerificationStatus;
+        profile.CacVerifiedAt = verification.VerifiedAt ?? profile.CacVerifiedAt;
+        profile.CacIncorporationDate = verification.IncorporationDate ?? profile.CacIncorporationDate;
     }
 
     private async Task SaveCorporateQiiProfileAsync(int userId, CorporateQiiProfilePayload payload, CancellationToken cancellationToken)
