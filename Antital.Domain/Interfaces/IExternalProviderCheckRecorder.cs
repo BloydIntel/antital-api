@@ -24,6 +24,7 @@ public static class ExternalProviderNames
 
 public static class DojahOperations
 {
+    public const string CacLookup = "CacLookup";
     public const string BvnLookup = "BvnLookup";
     public const string NinLookup = "NinLookup";
     public const string PassportLookup = "PassportLookup";

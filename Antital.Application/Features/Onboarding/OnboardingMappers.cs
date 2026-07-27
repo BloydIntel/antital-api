@@ -71,7 +71,13 @@ public static class OnboardingMappers
                 profile.TradingBrandName,
                 profile.RegistrationType,
                 profile.RegistrationNumber,
-                profile.CompanyLoginEmail
+                profile.CompanyLoginEmail,
+                profile.CacVerifiedCompanyName,
+                profile.CacVerifiedRegistrationNumber,
+                profile.CacVerifiedCompanyType,
+                profile.CacVerificationStatus,
+                profile.CacVerifiedAt,
+                profile.CacIncorporationDate
             ),
             new OnboardingCorporateAddressDto(
                 profile.DateOfRegistration,
@@ -124,7 +130,13 @@ public static class OnboardingMappers
                 profile.BusinessAddress,
                 profile.RegisteredAddress,
                 profile.CompanyEmail,
-                profile.CompanyPhone
+                profile.CompanyPhone,
+                profile.CacVerifiedCompanyName,
+                profile.CacVerifiedRegistrationNumber,
+                profile.CacVerifiedCompanyType,
+                profile.CacVerificationStatus,
+                profile.CacVerifiedAt,
+                profile.CacIncorporationDate
             ),
             new OnboardingFundRaiserRepresentativeDto(
                 profile.RepresentativeFullName,
