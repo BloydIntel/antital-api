@@ -1,16 +1,16 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Antital.Domain.Configuration;
 using Antital.Domain.Integrations.Paystack;
 using Antital.Domain.Interfaces;
+using Antital.Infrastructure.Integrations.Paystack.Refit;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Antital.Infrastructure.Integrations.Paystack;
 
 public class PaystackClient(
-    HttpClient httpClient,
+    IPaystackApi paystackApi,
     IOptions<PaystackSettings> options,
     ILogger<PaystackClient> logger) : IPaystackClient
 {
@@ -27,21 +27,16 @@ public class PaystackClient(
     {
         EnsureSecretKeyConfigured();
 
-        var payload = new
-        {
-            email = request.Email,
-            amount = request.AmountKobo,
-            reference = request.Reference,
-            callback_url = request.CallbackUrl,
-            channels = request.Channels,
-            currency = "NGN",
-            metadata = new
-            {
-                orderReference = request.Reference,
-            },
-        };
+        var payload = new PaystackInitializePayload(
+            request.Email,
+            request.AmountKobo,
+            request.Reference,
+            request.CallbackUrl,
+            request.Channels,
+            "NGN",
+            new PaystackInitializeMetadata(request.Reference));
 
-        using var response = await httpClient.PostAsJsonAsync("transaction/initialize", payload, JsonOptions, cancellationToken);
+        using var response = await paystackApi.InitializeTransactionAsync(payload, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -70,7 +65,7 @@ public class PaystackClient(
     {
         EnsureSecretKeyConfigured();
 
-        using var response = await httpClient.GetAsync($"transaction/verify/{Uri.EscapeDataString(reference)}", cancellationToken);
+        using var response = await paystackApi.VerifyTransactionAsync(reference, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -99,26 +94,5 @@ public class PaystackClient(
         {
             throw new InvalidOperationException("Paystack secret key is not configured.");
         }
-    }
-
-    private sealed class PaystackEnvelope<T>
-    {
-        public bool Status { get; set; }
-        public string? Message { get; set; }
-        public T? Data { get; set; }
-    }
-
-    private sealed class PaystackInitializeData
-    {
-        public string? AuthorizationUrl { get; set; }
-        public string? AccessCode { get; set; }
-        public string? Reference { get; set; }
-    }
-
-    private sealed class PaystackVerifyData
-    {
-        public string Status { get; set; } = string.Empty;
-        public string? Channel { get; set; }
-        public int Amount { get; set; }
     }
 }

@@ -1,15 +1,14 @@
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using Antital.Domain.Configuration;
 using Antital.Domain.Interfaces;
+using Antital.Infrastructure.Integrations.Dojah.Refit;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Antital.Infrastructure.Integrations.Dojah;
 
 public sealed class DojahClient(
-    HttpClient httpClient,
+    IDojahApi dojahApi,
     IOptions<DojahSettings> options,
     ILogger<DojahClient> logger
 ) : IDojahClient
@@ -31,11 +30,12 @@ public sealed class DojahClient(
                 DojahCacLookupResult.Fail(400, null, "Company type is required."));
         }
 
-        var path =
-            $"/api/v1/kyc/cac?rc_number={Uri.EscapeDataString(registrationNumber.Trim())}" +
-            $"&company_type={Uri.EscapeDataString(companyType.Trim())}";
-
-        return SendCacAsync(path, cancellationToken);
+        return SendCacAsync(
+            ct => dojahApi.LookupCacAsync(
+                registrationNumber.Trim(),
+                companyType.Trim(),
+                ct),
+            cancellationToken);
     }
 
     public Task<DojahIdentityLookupResult> LookupBvnAsync(
@@ -49,10 +49,8 @@ public sealed class DojahClient(
         }
 
         return SendIdentityAsync(
-            HttpMethod.Get,
-            $"/api/v1/kyc/bvn/full?bvn={Uri.EscapeDataString(bvn.Trim())}",
-            content: null,
-            operationName: "BVN lookup",
+            ct => dojahApi.LookupBvnAsync(bvn.Trim(), ct),
+            "BVN lookup",
             cancellationToken);
     }
 
@@ -67,10 +65,8 @@ public sealed class DojahClient(
         }
 
         return SendIdentityAsync(
-            HttpMethod.Get,
-            $"/api/v1/kyc/nin?nin={Uri.EscapeDataString(nin.Trim())}",
-            content: null,
-            operationName: "NIN lookup",
+            ct => dojahApi.LookupNinAsync(nin.Trim(), ct),
+            "NIN lookup",
             cancellationToken);
     }
 
@@ -91,15 +87,9 @@ public sealed class DojahClient(
                 DojahIdentityLookupResult.Fail(400, null, "Surname is required for passport lookup."));
         }
 
-        var path =
-            $"/api/v1/kyc/passport?passport_number={Uri.EscapeDataString(passportNumber.Trim())}" +
-            $"&surname={Uri.EscapeDataString(surname.Trim())}";
-
         return SendIdentityAsync(
-            HttpMethod.Get,
-            path,
-            content: null,
-            operationName: "passport lookup",
+            ct => dojahApi.LookupPassportAsync(passportNumber.Trim(), surname.Trim(), ct),
+            "passport lookup",
             cancellationToken);
     }
 
@@ -114,10 +104,8 @@ public sealed class DojahClient(
         }
 
         return SendIdentityAsync(
-            HttpMethod.Get,
-            $"/api/v1/kyc/dl?license_number={Uri.EscapeDataString(licenseNumber.Trim())}",
-            content: null,
-            operationName: "driver's licence lookup",
+            ct => dojahApi.LookupDriversLicenceAsync(licenseNumber.Trim(), ct),
+            "driver's licence lookup",
             cancellationToken);
     }
 
@@ -131,14 +119,9 @@ public sealed class DojahClient(
             return Task.FromResult(new DojahLookupResult(false, 400, null, "image Base64 is required."));
         }
 
-        var payload = JsonSerializer.Serialize(new { image = normalized });
-        var content = new StringContent(payload, Encoding.UTF8, "application/json");
-
         return SendRawAsync(
-            HttpMethod.Post,
-            "/api/v1/ml/liveness/",
-            content,
-            operationName: "liveness check",
+            ct => dojahApi.CheckLivenessAsync(new DojahLivenessRequest(normalized), ct),
+            "liveness check",
             cancellationToken);
     }
 
@@ -155,10 +138,8 @@ public sealed class DojahClient(
         }
 
         var raw = await SendRawAsync(
-            HttpMethod.Get,
-            $"/api/v1/kyc/verification?reference_id={Uri.EscapeDataString(referenceId.Trim())}",
-            content: null,
-            operationName: "widget verification lookup",
+            ct => dojahApi.GetWidgetVerificationAsync(referenceId.Trim(), ct),
+            "widget verification lookup",
             cancellationToken);
 
         if (!raw.IsSuccess)
@@ -186,7 +167,6 @@ public sealed class DojahClient(
             using var document = JsonDocument.Parse(raw.RawBody);
             var root = document.RootElement;
 
-            // Dojah wraps verification details in `entity` (same as other KYC endpoints).
             var payload = root;
             if (root.TryGetProperty("entity", out var entity)
                 && entity.ValueKind is JsonValueKind.Object)
@@ -199,7 +179,7 @@ public sealed class DojahClient(
                 payload,
                 "verification_status",
                 "verificationStatus");
-            var referenceId =
+            var resolvedReferenceId =
                 ReadString(payload, "reference_id", "referenceId")
                 ?? fallbackReferenceId;
             var selfieUrl = ReadString(payload, "selfie_url", "selfieUrl");
@@ -228,7 +208,7 @@ public sealed class DojahClient(
             return new DojahWidgetVerificationResult(
                 true,
                 raw.StatusCode,
-                referenceId,
+                resolvedReferenceId,
                 verificationStatus,
                 overallStatus || statusCompleted,
                 selfiePassed || statusCompleted || overallStatus,
@@ -248,7 +228,6 @@ public sealed class DojahClient(
             || string.Equals(verificationStatus, "Successful", StringComparison.OrdinalIgnoreCase)
             || string.Equals(verificationStatus, "Approved", StringComparison.OrdinalIgnoreCase)
             || string.Equals(verificationStatus, "Success", StringComparison.OrdinalIgnoreCase));
-
 
     private static bool? ReadBool(JsonElement element, params string[] propertyNames)
     {
@@ -282,13 +261,11 @@ public sealed class DojahClient(
     }
 
     private async Task<DojahIdentityLookupResult> SendIdentityAsync(
-        HttpMethod method,
-        string pathAndQuery,
-        HttpContent? content,
+        Func<CancellationToken, Task<HttpResponseMessage>> send,
         string operationName,
         CancellationToken cancellationToken)
     {
-        var raw = await SendRawAsync(method, pathAndQuery, content, operationName, cancellationToken);
+        var raw = await SendRawAsync(send, operationName, cancellationToken);
         if (!raw.IsSuccess)
         {
             return DojahIdentityLookupResult.Fail(raw.StatusCode, raw.RawBody, raw.ErrorMessage ?? "Dojah lookup failed.");
@@ -298,10 +275,10 @@ public sealed class DojahClient(
     }
 
     private async Task<DojahCacLookupResult> SendCacAsync(
-        string pathAndQuery,
+        Func<CancellationToken, Task<HttpResponseMessage>> send,
         CancellationToken cancellationToken)
     {
-        var raw = await SendRawAsync(HttpMethod.Get, pathAndQuery, null, "CAC lookup", cancellationToken);
+        var raw = await SendRawAsync(send, "CAC lookup", cancellationToken);
         if (!raw.IsSuccess)
         {
             return DojahCacLookupResult.Fail(raw.StatusCode, raw.RawBody, raw.ErrorMessage ?? "Dojah CAC lookup failed.");
@@ -311,9 +288,7 @@ public sealed class DojahClient(
     }
 
     private async Task<DojahLookupResult> SendRawAsync(
-        HttpMethod method,
-        string pathAndQuery,
-        HttpContent? content,
+        Func<CancellationToken, Task<HttpResponseMessage>> send,
         string operationName,
         CancellationToken cancellationToken)
     {
@@ -327,16 +302,9 @@ public sealed class DojahClient(
                 "Dojah AppId or PrivateKey is not configured.");
         }
 
-        using var request = new HttpRequestMessage(method, pathAndQuery);
-        request.Headers.TryAddWithoutValidation("AppId", settings.AppId);
-        // Dojah expects the private key as Authorization (not Bearer).
-        request.Headers.TryAddWithoutValidation("Authorization", settings.PrivateKey);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Content = content;
-
         try
         {
-            using var response = await httpClient.SendAsync(request, cancellationToken);
+            using var response = await send(cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
             if (!response.IsSuccessStatusCode)

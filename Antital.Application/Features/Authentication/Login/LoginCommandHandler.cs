@@ -20,11 +20,11 @@ public class LoginCommandHandler(
 
     public async Task<Result<AuthResponseDto>> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
-        // 1. Find user by email → throw NotFoundException if not found
+        // 1. Find user by email without revealing whether the account exists
         var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
         if (user == null)
         {
-            throw new NotFoundException(Messages.NotFound);
+            throw new UnauthorizedException(Messages.Unauthorized);
         }
 
         // 2. Verify password using IPasswordHasher → throw UnauthorizedException if invalid
@@ -52,7 +52,9 @@ public class LoginCommandHandler(
             UserId = user.Id,
             Email = user.Email,
             UserType = user.UserType,
-            IsEmailVerified = user.IsEmailVerified
+            Role = user.Role,
+            IsEmailVerified = user.IsEmailVerified,
+            RequiresOtp = false
         };
 
         var result = new Result<AuthResponseDto>();

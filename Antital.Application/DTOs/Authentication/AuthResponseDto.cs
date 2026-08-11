@@ -9,5 +9,7 @@ public class AuthResponseDto
     public int UserId { get; set; }
     public string Email { get; set; } = string.Empty;
     public UserTypeEnum UserType { get; set; }
+    public UserRoleEnum Role { get; set; } = UserRoleEnum.User;
     public bool IsEmailVerified { get; set; }
+    public bool RequiresOtp { get; set; }
 }

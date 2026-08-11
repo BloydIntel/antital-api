@@ -15,7 +15,9 @@ public class AuthResponseExample : IExamplesProvider<AuthResponseDto>
             UserId = 1,
             Email = "user@example.com",
             UserType = UserTypeEnum.IndividualInvestor,
-            IsEmailVerified = true
+            Role = UserRoleEnum.User,
+            IsEmailVerified = true,
+            RequiresOtp = false
         };
     }
 }
