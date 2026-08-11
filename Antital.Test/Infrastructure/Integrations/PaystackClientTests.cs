@@ -3,9 +3,11 @@ using System.Text;
 using Antital.Domain.Configuration;
 using Antital.Domain.Integrations.Paystack;
 using Antital.Infrastructure.Integrations.Paystack;
+using Antital.Infrastructure.Integrations.Paystack.Refit;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Refit;
 using Xunit;
 
 namespace Antital.Test.Infrastructure.Integrations;
@@ -34,8 +36,9 @@ public class PaystackClientTests
             });
 
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.paystack.co/") };
+        var api = RestService.For<IPaystackApi>(client);
         var paystackClient = new PaystackClient(
-            client,
+            api,
             Options.Create(new PaystackSettings { SecretKey = "sk_test_key" }),
             NullLogger<PaystackClient>.Instance);
 

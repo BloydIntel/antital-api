@@ -109,6 +109,29 @@ public class UserTests
     }
 
     [Fact]
+    public void User_Creation_Defaults_Role_ToUser()
+    {
+        // Act
+        var user = new User();
+
+        // Assert
+        user.Role.Should().Be(UserRoleEnum.User);
+    }
+
+    [Fact]
+    public void User_Creation_WithAdminRole_ShouldSetRoleToAdmin()
+    {
+        // Act
+        var user = new User
+        {
+            Role = UserRoleEnum.Admin
+        };
+
+        // Assert
+        user.Role.Should().Be(UserRoleEnum.Admin);
+    }
+
+    [Fact]
     public void User_Creation_WithEmailVerificationToken_ShouldStoreToken()
     {
         // Arrange

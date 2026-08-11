@@ -51,7 +51,6 @@ public class AuthenticationController(IMediator mediator) : BaseController
     [SwaggerResponseExample(StatusCodes.Status200OK, typeof(AuthResponseExample))]
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid request data", typeof(void))]
     [SwaggerResponse(StatusCodes.Status401Unauthorized, "Invalid credentials", typeof(void))]
-    [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(void))]
     public async Task<IActionResult> Login(LoginCommand request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(request, cancellationToken);

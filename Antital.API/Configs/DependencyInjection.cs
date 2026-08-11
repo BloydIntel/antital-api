@@ -25,8 +25,12 @@ using FluentValidation;
 using BuildingBlocks.Application.Behaviours;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Refit;
 using Swashbuckle.AspNetCore.Filters;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using Antital.Infrastructure.Integrations.Dojah.Refit;
+using Antital.Infrastructure.Integrations.Paystack.Refit;
+using Antital.Domain.Enums;
 
 namespace Antital.API.Configs;
 
@@ -100,7 +104,9 @@ public static class DependencyInjection
     {
         services.AddAuthorizationBuilder()
             .AddPolicy("CanDeletePolicy", policy =>
-            policy.RequireClaim("Permissions", "CanDelete"));
+                policy.RequireClaim("Permissions", "CanDelete"))
+            .AddPolicy("AdminPolicy", policy =>
+                policy.RequireRole(UserRoleEnum.Admin.ToString()));
 
         return services;
     }
@@ -142,26 +148,41 @@ public static class DependencyInjection
         services.AddScoped<InvestmentOfferingAccess>();
         services.AddScoped<IFileUploadService, CloudinaryFileUploadService>();
 
-        services.AddHttpClient<IPaystackClient, PaystackClient>((serviceProvider, client) =>
-        {
-            client.BaseAddress = new Uri("https://api.paystack.co/");
-
-            var secretKey = serviceProvider.GetRequiredService<IOptions<PaystackSettings>>().Value.SecretKey;
-            if (!string.IsNullOrWhiteSpace(secretKey))
+        services.AddRefitClient<IPaystackApi>()
+            .ConfigureHttpClient((serviceProvider, client) =>
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
-            }
-        });
+                client.BaseAddress = new Uri("https://api.paystack.co/");
 
-        services.AddHttpClient<DojahClient>((serviceProvider, client) =>
-        {
-            var settings = serviceProvider.GetRequiredService<IOptions<DojahSettings>>().Value;
-            var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl)
-                ? "https://sandbox.dojah.io"
-                : settings.BaseUrl.TrimEnd('/') + "/";
-            client.BaseAddress = new Uri(baseUrl);
-            client.Timeout = TimeSpan.FromSeconds(60);
-        });
+                var secretKey = serviceProvider.GetRequiredService<IOptions<PaystackSettings>>().Value.SecretKey;
+                if (!string.IsNullOrWhiteSpace(secretKey))
+                {
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+                }
+            });
+        services.AddScoped<IPaystackClient, PaystackClient>();
+
+        services.AddRefitClient<IDojahApi>()
+            .ConfigureHttpClient((serviceProvider, client) =>
+            {
+                var settings = serviceProvider.GetRequiredService<IOptions<DojahSettings>>().Value;
+                var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl)
+                    ? "https://sandbox.dojah.io"
+                    : settings.BaseUrl.TrimEnd('/') + "/";
+                client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromSeconds(60);
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
+
+                if (!string.IsNullOrWhiteSpace(settings.AppId))
+                {
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("AppId", settings.AppId);
+                }
+
+                if (!string.IsNullOrWhiteSpace(settings.PrivateKey))
+                {
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", settings.PrivateKey);
+                }
+            });
+        services.AddScoped<DojahClient>();
         services.AddScoped<IExternalProviderCheckRecorder, ExternalProviderCheckRecorder>();
         services.AddScoped<IDojahClient, AuditingDojahClient>();
 

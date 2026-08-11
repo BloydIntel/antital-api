@@ -3,6 +3,7 @@ using System;
 using Antital.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Antital.Infrastructure.Migrations
 {
     [DbContext(typeof(AntitalDBContext))]
-    partial class AntitalDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260811035228_AddUserRole")]
+    partial class AddUserRole
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1893,28 +1896,6 @@ namespace Antital.Infrastructure.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("BusinessSize")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime?>("CacIncorporationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CacVerificationStatus")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime?>("CacVerifiedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CacVerifiedCompanyName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("CacVerifiedCompanyType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("CacVerifiedRegistrationNumber")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
