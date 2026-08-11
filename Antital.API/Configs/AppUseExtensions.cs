@@ -8,6 +8,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Antital.Infrastructure;
 using Antital.Infrastructure.Seed;
+using Antital.Domain.Interfaces;
 using System.Text;
 
 namespace Antital.API.Configs;
@@ -16,7 +17,7 @@ public static class AppUseExtensions
 {
     public static IApplicationBuilder AppUse(this IApplicationBuilder app, IConfiguration configuration)
     {
-        app.MigratingDatabase();
+        app.MigratingDatabase(configuration);
 
         UsingJobs(configuration);
 
@@ -93,7 +94,9 @@ public static class AppUseExtensions
             $"{DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)} Hangfire: registered '{jobId}' → GET {uri} on cron {cronEvery15MinutesUtc} (UTC)");
     }
 
-    private static IApplicationBuilder MigratingDatabase(this IApplicationBuilder app)
+    private static IApplicationBuilder MigratingDatabase(
+        this IApplicationBuilder app,
+        IConfiguration configuration)
     {
         using var serviceScope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
         var context = serviceScope.ServiceProvider.GetService<AntitalDBContext>();
@@ -124,6 +127,7 @@ public static class AppUseExtensions
                     FundraiserQiiParticipationSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     FundraiserAnalyticsEngagementSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     FundraiserDocumentsSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
+                    SeedSuperAdmin(context, configuration, serviceScope.ServiceProvider, logger);
                 }
             }
             catch (Exception ex)
@@ -134,5 +138,35 @@ public static class AppUseExtensions
         }
 
         return app;
+    }
+
+    private static void SeedSuperAdmin(
+        AntitalDBContext context,
+        IConfiguration configuration,
+        IServiceProvider serviceProvider,
+        ILogger logger)
+    {
+        if (!configuration.GetValue<bool>("SuperAdminSeed:Enabled"))
+        {
+            return;
+        }
+
+        var email = configuration["SuperAdminSeed:Email"];
+        var password = configuration["SuperAdminSeed:Password"];
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException(
+                "SuperAdminSeed is enabled, but SuperAdminSeed:Email or SuperAdminSeed:Password is missing.");
+        }
+
+        var passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
+        SuperAdminUserSeed.SeedAsync(
+            context,
+            passwordHasher,
+            email,
+            password,
+            logger,
+            CancellationToken.None).GetAwaiter().GetResult();
     }
 }
