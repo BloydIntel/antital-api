@@ -15,6 +15,33 @@ namespace Antital.Test.Infrastructure.Integrations;
 public class DojahClientTests
 {
     [Fact]
+    public async Task LookupCacAsync_UsesRefitEndpointAndParsesEntity()
+    {
+        const string body = """
+            {
+              "entity": {
+                "company_name": "ANTITAL LIMITED",
+                "rc_number": "RC123456",
+                "company_type": "RC",
+                "status": "ACTIVE",
+                "date_of_registration": "2020-01-15"
+              }
+            }
+            """;
+
+        var client = CreateClient(HttpStatusCode.OK, body);
+
+        var result = await client.LookupCacAsync("RC123456", "RC");
+
+        result.IsSuccess.Should().BeTrue();
+        result.CompanyName.Should().Be("ANTITAL LIMITED");
+        result.RegistrationNumber.Should().Be("RC123456");
+        result.CompanyType.Should().Be("RC");
+        result.Status.Should().Be("ACTIVE");
+        result.IncorporationDate.Should().Be("2020-01-15");
+    }
+
+    [Fact]
     public async Task LookupBvnAsync_ParsesSnakeCaseEntity()
     {
         const string body = """

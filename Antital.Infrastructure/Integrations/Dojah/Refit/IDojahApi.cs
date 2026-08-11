@@ -5,6 +5,12 @@ namespace Antital.Infrastructure.Integrations.Dojah.Refit;
 
 public interface IDojahApi
 {
+    [Get("/api/v1/kyc/cac")]
+    Task<HttpResponseMessage> LookupCacAsync(
+        [AliasAs("rc_number")] string registrationNumber,
+        [AliasAs("company_type")] string companyType,
+        CancellationToken cancellationToken = default);
+
     [Get("/api/v1/kyc/bvn/full")]
     Task<HttpResponseMessage> LookupBvnAsync([AliasAs("bvn")] string bvn, CancellationToken cancellationToken = default);
 

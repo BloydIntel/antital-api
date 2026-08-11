@@ -30,11 +30,12 @@ public sealed class DojahClient(
                 DojahCacLookupResult.Fail(400, null, "Company type is required."));
         }
 
-        var path =
-            $"/api/v1/kyc/cac?rc_number={Uri.EscapeDataString(registrationNumber.Trim())}" +
-            $"&company_type={Uri.EscapeDataString(companyType.Trim())}";
-
-        return SendCacAsync(path, cancellationToken);
+        return SendCacAsync(
+            ct => dojahApi.LookupCacAsync(
+                registrationNumber.Trim(),
+                companyType.Trim(),
+                ct),
+            cancellationToken);
     }
 
     public Task<DojahIdentityLookupResult> LookupBvnAsync(
@@ -274,10 +275,10 @@ public sealed class DojahClient(
     }
 
     private async Task<DojahCacLookupResult> SendCacAsync(
-        string pathAndQuery,
+        Func<CancellationToken, Task<HttpResponseMessage>> send,
         CancellationToken cancellationToken)
     {
-        var raw = await SendRawAsync(HttpMethod.Get, pathAndQuery, null, "CAC lookup", cancellationToken);
+        var raw = await SendRawAsync(send, "CAC lookup", cancellationToken);
         if (!raw.IsSuccess)
         {
             return DojahCacLookupResult.Fail(raw.StatusCode, raw.RawBody, raw.ErrorMessage ?? "Dojah CAC lookup failed.");
