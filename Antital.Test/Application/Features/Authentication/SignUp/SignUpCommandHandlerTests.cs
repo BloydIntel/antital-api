@@ -15,6 +15,7 @@ namespace Antital.Test.Application.Features.Authentication.SignUp;
 public class SignUpCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<IUserInvestmentProfileRepository> _userInvestmentProfileRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<IEmailService> _emailServiceMock;
@@ -26,6 +27,7 @@ public class SignUpCommandHandlerTests
     public SignUpCommandHandlerTests()
     {
         _userRepositoryMock = new Mock<IUserRepository>();
+        _userInvestmentProfileRepositoryMock = new Mock<IUserInvestmentProfileRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _emailServiceMock = new Mock<IEmailService>();
@@ -41,6 +43,7 @@ public class SignUpCommandHandlerTests
 
         _handler = new SignUpCommandHandler(
             _userRepositoryMock.Object,
+            _userInvestmentProfileRepositoryMock.Object,
             _passwordHasherMock.Object,
             _jwtTokenServiceMock.Object,
             _emailServiceMock.Object,
@@ -109,7 +112,7 @@ public class SignUpCommandHandlerTests
         _userRepositoryMock.Verify(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>()), Times.Once);
         _passwordHasherMock.Verify(x => x.HashPassword(command.Password), Times.Once);
         _userRepositoryMock.Verify(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
-        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
         _emailServiceMock.Verify(x => x.SendVerificationEmailAsync(command.Email, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
         _jwtTokenServiceMock.Verify(x => x.GenerateToken(It.IsAny<User>()), Times.Once);
     }
@@ -373,7 +376,7 @@ public class SignUpCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_CorporateInvestor_DoesNotCreateInvestmentProfileDuringSignup()
+    public async Task Handle_CorporateInvestor_CreatesInvestmentProfileDuringSignup()
     {
         var command = new SignUpCommand(
             FirstName: "Jane",
@@ -430,6 +433,16 @@ public class SignUpCommandHandlerTests
         capturedUser.Should().NotBeNull();
         capturedUser!.UserType.Should().Be(UserTypeEnum.CorporateInvestor);
         _userRepositoryMock.Verify(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
+        _userInvestmentProfileRepositoryMock.Verify(
+            x => x.AddAsync(
+                It.Is<UserInvestmentProfile>(p =>
+                    p.UserId == 77
+                    && p.CompanyLegalName == "Acme Ventures Ltd"
+                    && p.CompanyPhone == "+2348012345678"
+                    && p.RepresentativeFullName == "Jane Corp"
+                    && p.RepresentativeDateOfBirth == new DateTime(1990, 5, 10)),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -468,7 +481,7 @@ public class SignUpCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_FundraiserSignup_DoesNotCreateInvestmentProfileDuringSignup()
+    public async Task Handle_FundraiserSignup_CreatesInvestmentProfileDuringSignup()
     {
         var command = new SignUpCommand(
             FirstName: "Ayo",
@@ -524,6 +537,15 @@ public class SignUpCommandHandlerTests
         capturedUser.Should().NotBeNull();
         capturedUser!.UserType.Should().Be(UserTypeEnum.FundRaiser);
         _userRepositoryMock.Verify(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
+        _userInvestmentProfileRepositoryMock.Verify(
+            x => x.AddAsync(
+                It.Is<UserInvestmentProfile>(p =>
+                    p.UserId == 22
+                    && p.CompanyLegalName == "Acme Fundraise Ltd"
+                    && p.CompanyPhone == "+2348012345678"
+                    && p.RepresentativeFullName == null),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -556,5 +578,8 @@ public class SignUpCommandHandlerTests
 
         await _handler.Handle(command, CancellationToken.None);
 
+        _userInvestmentProfileRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<UserInvestmentProfile>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

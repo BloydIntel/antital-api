@@ -77,6 +77,16 @@ public class UserInvestmentProfile : TrackableEntity
     public string? CompanyEmail { get; set; }
     [MaxLength(50)]
     public string? CompanyPhone { get; set; }
+    [MaxLength(200)]
+    public string? CacVerifiedCompanyName { get; set; }
+    [MaxLength(100)]
+    public string? CacVerifiedRegistrationNumber { get; set; }
+    [MaxLength(100)]
+    public string? CacVerifiedCompanyType { get; set; }
+    [MaxLength(100)]
+    public string? CacVerificationStatus { get; set; }
+    public DateTime? CacVerifiedAt { get; set; }
+    public DateTime? CacIncorporationDate { get; set; }
 
     // --- Corporate representative ---
     [MaxLength(200)]

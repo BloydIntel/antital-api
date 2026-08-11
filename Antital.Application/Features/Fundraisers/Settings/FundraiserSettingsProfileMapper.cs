@@ -15,6 +15,12 @@ internal static class FundraiserSettingsProfileMapper
         return new FundraiserSettingsProfileResponse(
             CompanyName: companyName,
             RegistrationNumber: NullIfWhiteSpace(profile?.RegistrationNumber),
+            CacVerifiedCompanyName: NullIfWhiteSpace(profile?.CacVerifiedCompanyName),
+            CacVerifiedRegistrationNumber: NullIfWhiteSpace(profile?.CacVerifiedRegistrationNumber),
+            CacVerifiedCompanyType: NullIfWhiteSpace(profile?.CacVerifiedCompanyType),
+            CacVerificationStatus: NullIfWhiteSpace(profile?.CacVerificationStatus),
+            CacVerifiedAt: profile?.CacVerifiedAt,
+            CacIncorporationDate: profile?.CacIncorporationDate,
             Bio: NullIfWhiteSpace(profile?.BusinessDescription),
             Website: NullIfWhiteSpace(profile?.CompanyWebsite),
             PublicEmail: NullIfWhiteSpace(profile?.CompanyEmail),

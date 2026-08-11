@@ -15,6 +15,7 @@ public class DojahKycVerificationServiceTests
 {
     private readonly Mock<IDojahClient> _dojah = new();
     private readonly Mock<IUserRepository> _users = new();
+    private readonly Mock<IUserInvestmentProfileRepository> _profiles = new();
     private readonly PassThroughKycVerificationService _passThrough = new();
 
     [Fact]
@@ -106,10 +107,40 @@ public class DojahKycVerificationServiceTests
         result.GovernmentIdVerifiedAt.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task ProcessAsync_ForFundraiser_UsesRepresentativeIdentity()
+    {
+        var user = SampleUser();
+        user.UserType = UserTypeEnum.FundRaiser;
+        user.FirstName = "Charielong";
+        user.LastName = "Hairs";
+        user.DateOfBirth = new DateTime(1985, 4, 10, 0, 0, 0, DateTimeKind.Utc);
+
+        _users.Setup(u => u.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _profiles.Setup(p => p.GetByUserIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserInvestmentProfile
+            {
+                UserId = user.Id,
+                RepresentativeFullName = "John Adamu",
+                RepresentativeDateOfBirth = new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            });
+
+        _dojah.Setup(d => d.LookupNinAsync("70123456789", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SuccessIdentity("JOHN", "ADAMU", "1990-01-01"));
+        _dojah.Setup(d => d.LookupBvnAsync("22222222222", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SuccessIdentity("JOHN", "ADAMU", "2000-05-01"));
+
+        var sut = CreateSut(enabled: true);
+        var result = await sut.ProcessAsync(SampleInput());
+
+        result.GovernmentIdVerifiedAt.Should().NotBeNull();
+    }
+
     private DojahKycVerificationService CreateSut(bool enabled) =>
         new(
             _dojah.Object,
             _users.Object,
+            _profiles.Object,
             Options.Create(new DojahSettings { Enabled = enabled }),
             _passThrough);
 

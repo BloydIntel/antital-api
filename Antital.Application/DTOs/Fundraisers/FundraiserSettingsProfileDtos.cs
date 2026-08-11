@@ -10,6 +10,12 @@ public record FundraiserSettingsContactDto(
 public record FundraiserSettingsProfileResponse(
     string? CompanyName,
     string? RegistrationNumber,
+    string? CacVerifiedCompanyName,
+    string? CacVerifiedRegistrationNumber,
+    string? CacVerifiedCompanyType,
+    string? CacVerificationStatus,
+    DateTime? CacVerifiedAt,
+    DateTime? CacIncorporationDate,
     string? Bio,
     string? Website,
     string? PublicEmail,

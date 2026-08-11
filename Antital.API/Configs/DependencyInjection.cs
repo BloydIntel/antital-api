@@ -136,6 +136,7 @@ public static class DependencyInjection
         services.AddScoped<IAntitalCurrentUser, AntitalCurrentUser>();
         services.AddScoped<PassThroughKycVerificationService>();
         services.AddScoped<IKycVerificationService, DojahKycVerificationService>();
+        services.AddScoped<ICompanyVerificationService, DojahCompanyVerificationService>();
         services.AddScoped<IOnboardingUserAccess, OnboardingUserAccess>();
         services.AddScoped<IInvestorUserAccess, InvestorUserAccess>();
         services.AddScoped<IFundraiserUserAccess, FundraiserUserAccess>();

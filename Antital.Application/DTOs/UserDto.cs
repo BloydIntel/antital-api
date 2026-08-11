@@ -38,6 +38,12 @@ public class UserCompanyDto
     public string? RegisteredAddress { get; set; }
     public string? CompanyEmail { get; set; }
     public string? CompanyPhone { get; set; }
+    public string? CacVerifiedCompanyName { get; set; }
+    public string? CacVerifiedRegistrationNumber { get; set; }
+    public string? CacVerifiedCompanyType { get; set; }
+    public string? CacVerificationStatus { get; set; }
+    public DateTime? CacVerifiedAt { get; set; }
+    public DateTime? CacIncorporationDate { get; set; }
     public string? RepresentativeFullName { get; set; }
     public string? RepresentativeJobTitle { get; set; }
     public string? RepresentativePhoneNumber { get; set; }

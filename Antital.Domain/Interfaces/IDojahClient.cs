@@ -2,6 +2,12 @@ namespace Antital.Domain.Interfaces;
 
 public interface IDojahClient
 {
+    /// <summary>CAC company lookup by RC number and company type.</summary>
+    Task<DojahCacLookupResult> LookupCacAsync(
+        string registrationNumber,
+        string companyType,
+        CancellationToken cancellationToken = default);
+
     /// <summary>BVN full lookup. Sandbox test BVN: <c>22222222222</c>.</summary>
     Task<DojahIdentityLookupResult> LookupBvnAsync(string bvn, CancellationToken cancellationToken = default);
 
@@ -32,6 +38,22 @@ public interface IDojahClient
     Task<DojahWidgetVerificationResult> GetWidgetVerificationAsync(
         string referenceId,
         CancellationToken cancellationToken = default);
+}
+
+public sealed record DojahCacLookupResult(
+    bool IsSuccess,
+    int StatusCode,
+    string? CompanyName,
+    string? RegistrationNumber,
+    string? CompanyType,
+    string? Status,
+    string? IncorporationDate,
+    string? RawBody,
+    string? ErrorMessage
+)
+{
+    public static DojahCacLookupResult Fail(int statusCode, string? rawBody, string errorMessage) =>
+        new(false, statusCode, null, null, null, null, null, rawBody, errorMessage);
 }
 
 /// <summary>Raw Dojah HTTP outcome (liveness and fallbacks).</summary>
