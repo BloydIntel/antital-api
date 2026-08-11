@@ -101,7 +101,9 @@ public class SignUpCommandHandlerTests
         result.Value!.Token.Should().Be(jwtToken);
         result.Value.Email.Should().Be(command.Email);
         result.Value.UserType.Should().Be(UserTypeEnum.IndividualInvestor);
+        result.Value.Role.Should().Be(UserRoleEnum.User);
         result.Value.IsEmailVerified.Should().BeFalse();
+        result.Value.RequiresOtp.Should().BeFalse();
 
         // Verify interactions
         _userRepositoryMock.Verify(x => x.EmailExistsAsync(command.Email, It.IsAny<CancellationToken>()), Times.Once);

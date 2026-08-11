@@ -16,9 +16,12 @@ using Antital.Test.Integration;
 using BuildingBlocks.Application.Features;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Security.Cryptography;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using Xunit;
 
@@ -341,11 +344,67 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
         result.Value.Should().NotBeNull();
         result.Value!.Token.Should().NotBeNullOrEmpty();
         result.Value.Email.Should().Be(command.Email);
+        result.Value.Role.Should().Be(UserRoleEnum.User);
         result.Value.IsEmailVerified.Should().BeTrue();
+        result.Value.RequiresOtp.Should().BeFalse();
     }
 
     [Fact]
-    public async Task Login_InvalidEmail_Returns404NotFound()
+    public async Task Login_AdminAccount_ReturnsAdminRoleAndTokensWithoutOtp()
+    {
+        // Arrange
+        var user = new User
+        {
+            Email = "admin@example.com",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("SecurePass123!"),
+            UserType = UserTypeEnum.IndividualInvestor,
+            Role = UserRoleEnum.Admin,
+            IsEmailVerified = true,
+            FirstName = "Admin",
+            LastName = "User",
+            PhoneNumber = "+2348012345678",
+            DateOfBirth = new DateTime(1990, 1, 1),
+            Nationality = "Nigerian",
+            CountryOfResidence = "Nigeria",
+            StateOfResidence = "Lagos",
+            ResidentialAddress = "123 Main Street",
+            HasAgreedToTerms = true
+        };
+        user.Created(user.Email);
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var command = new LoginCommand(
+            Email: user.Email,
+            Password: "SecurePass123!"
+        );
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/auth/login", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Result<AuthResponseDto>>(JsonOptions);
+        result.Should().NotBeNull();
+        result!.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.Role.Should().Be(UserRoleEnum.Admin);
+        result.Value.RequiresOtp.Should().BeFalse();
+        result.Value.Token.Should().NotBeNullOrEmpty();
+        result.Value.RefreshToken.Should().NotBeNullOrEmpty();
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.Token);
+        jwt.Claims.Should().Contain(c =>
+            c.Type == ClaimTypes.Role && c.Value == UserRoleEnum.Admin.ToString());
+
+        _context.ChangeTracker.Clear();
+        var persistedUser = await _context.Users.SingleAsync(x => x.Email == user.Email);
+        persistedUser.RefreshTokenHash.Should().NotBeNullOrEmpty();
+        persistedUser.RefreshTokenExpiresAt.Should().BeAfter(DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task Login_InvalidEmail_Returns401Unauthorized()
     {
         // Arrange
         var command = new LoginCommand(
@@ -357,7 +416,7 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
         var response = await _client.PostAsJsonAsync("/api/auth/login", command);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -499,6 +558,27 @@ public class AuthenticationControllerTests : IClassFixture<CustomWebApplicationF
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task AdminPolicy_AllowsAdminRoleAndRejectsUserRole()
+    {
+        // Arrange
+        var authorizationService = _scope.ServiceProvider.GetRequiredService<IAuthorizationService>();
+        var adminPrincipal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.Role, UserRoleEnum.Admin.ToString())],
+            "Test"));
+        var userPrincipal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.Role, UserRoleEnum.User.ToString())],
+            "Test"));
+
+        // Act
+        var adminResult = await authorizationService.AuthorizeAsync(adminPrincipal, null, "AdminPolicy");
+        var userResult = await authorizationService.AuthorizeAsync(userPrincipal, null, "AdminPolicy");
+
+        // Assert
+        adminResult.Succeeded.Should().BeTrue();
+        userResult.Succeeded.Should().BeFalse();
     }
 
     [Fact]

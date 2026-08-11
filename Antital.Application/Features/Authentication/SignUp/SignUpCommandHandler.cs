@@ -98,7 +98,9 @@ public class SignUpCommandHandler(
             UserId = user.Id,
             Email = user.Email,
             UserType = user.UserType,
-            IsEmailVerified = user.IsEmailVerified
+            Role = user.Role,
+            IsEmailVerified = user.IsEmailVerified,
+            RequiresOtp = false
         };
 
         var result = new Result<AuthResponseDto>();

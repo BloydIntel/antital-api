@@ -3,9 +3,11 @@ using System.Text;
 using Antital.Domain.Configuration;
 using Antital.Domain.Interfaces;
 using Antital.Infrastructure.Integrations.Dojah;
+using Antital.Infrastructure.Integrations.Dojah.Refit;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Refit;
 using Xunit;
 
 namespace Antital.Test.Infrastructure.Integrations;
@@ -204,8 +206,9 @@ public class DojahClientTests
             });
 
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://sandbox.dojah.io/") };
+        var api = RestService.For<IDojahApi>(httpClient);
         return new DojahClient(
-            httpClient,
+            api,
             Options.Create(new DojahSettings
             {
                 AppId = "test-app",

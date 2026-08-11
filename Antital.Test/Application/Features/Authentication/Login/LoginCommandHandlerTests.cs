@@ -90,7 +90,9 @@ public class LoginCommandHandlerTests
         result.Value.UserId.Should().Be(user.Id);
         result.Value.Email.Should().Be(user.Email);
         result.Value.UserType.Should().Be(user.UserType);
+        result.Value.Role.Should().Be(UserRoleEnum.User);
         result.Value.IsEmailVerified.Should().BeTrue();
+        result.Value.RequiresOtp.Should().BeFalse();
         result.Value.RefreshToken.Should().NotBeNullOrEmpty();
 
         _userRepositoryMock.Verify(x => x.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()), Times.Once);
@@ -101,7 +103,7 @@ public class LoginCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_InvalidEmail_ThrowsNotFoundException()
+    public async Task Handle_InvalidEmail_ThrowsUnauthorizedException()
     {
         // Arrange
         var command = new LoginCommand(
@@ -117,10 +119,55 @@ public class LoginCommandHandlerTests
         Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        await act.Should().ThrowAsync<NotFoundException>();
+        await act.Should().ThrowAsync<UnauthorizedException>();
 
         _passwordHasherMock.Verify(x => x.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         _jwtTokenServiceMock.Verify(x => x.GenerateToken(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_AdminLogin_ReturnsAdminRoleWithoutOtpRequirement()
+    {
+        // Arrange
+        var command = new LoginCommand(
+            Email: "admin@example.com",
+            Password: "SecurePass123!"
+        );
+
+        var user = new User
+        {
+            Id = 2,
+            Email = command.Email,
+            PasswordHash = "hashed_password",
+            UserType = UserTypeEnum.IndividualInvestor,
+            Role = UserRoleEnum.Admin,
+            IsEmailVerified = true
+        };
+
+        _userRepositoryMock
+            .Setup(x => x.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _passwordHasherMock
+            .Setup(x => x.VerifyPassword(command.Password, user.PasswordHash))
+            .Returns(true);
+
+        _jwtTokenServiceMock
+            .Setup(x => x.GenerateToken(user))
+            .Returns("admin_jwt_token");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.Role.Should().Be(UserRoleEnum.Admin);
+        result.Value.RequiresOtp.Should().BeFalse();
+        result.Value.Token.Should().Be("admin_jwt_token");
+        result.Value.RefreshToken.Should().NotBeNullOrEmpty();
+        _userRepositoryMock.Verify(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

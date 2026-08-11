@@ -74,8 +74,31 @@ public class JwtTokenServiceTests
         jsonToken.Claims.Should().Contain(c => c.Type == "UserId" && c.Value == "123");
         jsonToken.Claims.Should().Contain(c => c.Type == ClaimTypes.Email && c.Value == "user@example.com");
         jsonToken.Claims.Should().Contain(c => c.Type == "UserType" && c.Value == UserTypeEnum.IndividualInvestor.ToString());
+        jsonToken.Claims.Should().Contain(c => c.Type == ClaimTypes.Role && c.Value == UserRoleEnum.User.ToString());
         jsonToken.Claims.Should().Contain(c => c.Type == "IsEmailVerified" && c.Value == "False");
         jsonToken.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Jti);
+    }
+
+    [Fact]
+    public void GenerateToken_AdminUser_ContainsAdminRoleClaim()
+    {
+        // Arrange
+        var user = new User
+        {
+            Id = 456,
+            Email = "admin@example.com",
+            UserType = UserTypeEnum.IndividualInvestor,
+            Role = UserRoleEnum.Admin,
+            IsEmailVerified = true
+        };
+
+        // Act
+        var token = _jwtTokenService.GenerateToken(user);
+        var jsonToken = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        // Assert
+        jsonToken.Claims.Should().Contain(c =>
+            c.Type == ClaimTypes.Role && c.Value == UserRoleEnum.Admin.ToString());
     }
 
     [Fact]

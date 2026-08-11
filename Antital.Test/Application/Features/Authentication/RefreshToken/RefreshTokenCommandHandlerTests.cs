@@ -53,6 +53,8 @@ public class RefreshTokenCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Token.Should().Be("new_access");
         result.Value.RefreshToken.Should().NotBe(refreshToken);
+        result.Value.Role.Should().Be(UserRoleEnum.User);
+        result.Value.RequiresOtp.Should().BeFalse();
         _userRepoMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _uowMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
