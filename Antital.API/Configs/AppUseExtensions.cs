@@ -127,6 +127,7 @@ public static class AppUseExtensions
                     FundraiserQiiParticipationSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     FundraiserAnalyticsEngagementSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     FundraiserDocumentsSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
+                    PlatformAlertsSeed.SeedAsync(context, logger, CancellationToken.None).GetAwaiter().GetResult();
                     SeedSuperAdmin(context, configuration, serviceScope.ServiceProvider, logger);
                 }
             }

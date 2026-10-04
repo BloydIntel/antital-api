@@ -65,5 +65,9 @@ AUTHENTICATION_IMPLEMENTATION.md
 
 # Local environment files
 .env
+
+# Graphify generated code graphs and reports
+graphify-out/
+.playwright-mcp/
 ONBOARDING_IMPLEMENTATION_PLAN.md
 SUMMARY.md
