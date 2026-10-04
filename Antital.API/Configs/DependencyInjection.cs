@@ -38,6 +38,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection Register(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton(TimeProvider.System);
         services
             .RegisterRepositories()
             .RegisterDBContext(configuration)
@@ -77,6 +78,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IInvestmentOfferingRepository), typeof(InvestmentOfferingRepository));
         services.AddScoped(typeof(IInvestorDashboardRepository), typeof(InvestorDashboardRepository));
         services.AddScoped(typeof(IFundraiserDashboardRepository), typeof(FundraiserDashboardRepository));
+        services.AddScoped(typeof(IAdminDashboardRepository), typeof(AdminDashboardRepository));
         services.AddScoped(typeof(IFundraiserCampaignUpdatesRepository), typeof(FundraiserCampaignUpdatesRepository));
         services.AddScoped(typeof(IFundraiserInvestorMessagesRepository), typeof(FundraiserInvestorMessagesRepository));
         services.AddScoped(typeof(IFundraiserQiiParticipationRepository), typeof(FundraiserQiiParticipationRepository));
