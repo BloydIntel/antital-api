@@ -32,6 +32,31 @@ public record AdminDashboardEvent(
     decimal? Amount = null,
     string? Currency = null);
 
+public record AdminActivityLogQuery(
+    int Page,
+    int PageSize,
+    string? Search = null,
+    string? EventType = null,
+    string? Module = null,
+    string? Priority = null,
+    string? Status = null);
+
+public record AdminActivityLogItem(
+    string Id,
+    AdminDashboardEventKind Kind,
+    string Subject,
+    string Description,
+    DateTime OccurredAtUtc,
+    string EventType,
+    string Module,
+    string Priority,
+    string Status);
+
+public record AdminActivityLogResult(
+    IReadOnlyList<AdminActivityLogItem> Items,
+    int TotalCount,
+    IReadOnlyDictionary<string, int> CountsByEventType);
+
 public interface IAdminDashboardRepository
 {
     Task<AdminInvestorMetrics> GetInvestorMetricsAsync(
@@ -51,5 +76,9 @@ public interface IAdminDashboardRepository
 
     Task<IReadOnlyList<AdminDashboardEvent>> GetRecentEventsAsync(
         int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<AdminActivityLogResult> GetActivityLogsAsync(
+        AdminActivityLogQuery query,
         CancellationToken cancellationToken = default);
 }
