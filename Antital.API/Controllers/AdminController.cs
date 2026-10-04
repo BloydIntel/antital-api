@@ -88,14 +88,17 @@ public class AdminController(IMediator mediator) : BaseController
         return result is null ? NotFound() : Ok(new { isSuccess = true, value = result });
     }
 
-    public sealed record UpdateInvestorRequest(string? KycStatus, string? Note, bool? Suspended);
+    public sealed record UpdateInvestorRequest(string? KycStatus, string? Note, bool? Suspended, string? SuspensionAction, string? EvidenceJson);
 
     [HttpPatch("investors/{investorId}")]
     public async Task<IActionResult> UpdateInvestor(string investorId, [FromBody] UpdateInvestorRequest request, [FromServices] IAdminInvestorsRepository repository, CancellationToken cancellationToken = default)
     {
         if (request.KycStatus is not null && !Enum.TryParse<Antital.Domain.Enums.InvestorKycStatus>(request.KycStatus, true, out _)) return BadRequest(new { isSuccess = false, error = "Invalid KYC status." });
         if (request.KycStatus is not null && string.IsNullOrWhiteSpace(request.Note)) return BadRequest(new { isSuccess = false, error = "A review note is required for KYC updates." });
-        var result = await repository.UpdateAsync(investorId, new AdminInvestorMutation(request.KycStatus, request.Note, request.Suspended), User.Identity?.Name ?? "admin", cancellationToken);
+        if (request.SuspensionAction is not null && request.SuspensionAction is not ("note" or "contact" or "str")) return BadRequest(new { isSuccess = false, error = "Invalid suspension action." });
+        if (request.SuspensionAction is not null && string.IsNullOrWhiteSpace(request.Note)) return BadRequest(new { isSuccess = false, error = "A note is required for suspension actions." });
+        var requestId = Request.Headers.TryGetValue("Idempotency-Key", out var key) ? key.ToString() : null;
+        var result = await repository.UpdateAsync(investorId, new AdminInvestorMutation(request.KycStatus, request.Note, request.Suspended, request.SuspensionAction, requestId, request.EvidenceJson), User.Identity?.Name ?? "admin", cancellationToken);
         return result is null ? NotFound() : Ok(new { isSuccess = true, value = result });
     }
 }

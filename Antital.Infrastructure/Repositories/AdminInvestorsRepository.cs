@@ -2,6 +2,7 @@ using Antital.Domain.Enums;
 using Antital.Domain.Interfaces;
 using Antital.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace Antital.Infrastructure.Repositories;
 
@@ -36,8 +37,28 @@ public sealed class AdminInvestorsRepository(AntitalDBContext context) : IAdminI
         var wallet = await context.InvestorWallets.AsNoTracking().Where(x => x.UserId == id && !x.IsDeleted).Select(x => (decimal?)x.AvailableBalance).FirstOrDefaultAsync(cancellationToken) ?? 0;
         var holdings = await context.InvestorHoldings.AsNoTracking().Where(x => x.UserId == id && !x.IsDeleted).Include(x => x.Offering).OrderByDescending(x => x.CurrentValue).Select(x => new AdminInvestorHolding(x.Offering.Name, "Equity", x.InvestedAmount, x.CurrentValue, x.Returns, "Performing")).ToListAsync(cancellationToken);
         var orders = await context.InvestmentOrders.AsNoTracking().Where(x => x.UserId == id && !x.IsDeleted).OrderByDescending(x => x.CreatedAt).Take(20).Select(x => new AdminInvestorTransaction(x.Id, "Investment", x.TotalAmount, x.Currency, x.Status.ToString(), x.PaidAt ?? x.CreatedAt)).ToListAsync(cancellationToken);
-        return new AdminInvestorDetail(id, $"INV-{id:0000}", user.FirstName, user.LastName, user.Email, user.PhoneNumber, user.DateOfBirth, user.CountryOfResidence, user.StateOfResidence, user.ResidentialAddress, user.UserType, user.AccountStatus, kyc?.ReviewStatus ?? InvestorKycStatus.Pending, kyc?.ReviewNote, kyc?.ReviewedAt, wallet, holdings.Sum(x => x.Amount), holdings.Count, holdings.Sum(x => x.Returns), holdings, orders);
+        var suspensionActions = await context.AdminInvestorSuspensionActions.AsNoTracking().Where(x => x.UserId == id && !x.IsDeleted).OrderByDescending(x => x.CreatedAt).ToListAsync(cancellationToken);
+        var documents = new[]
+        {
+            new AdminInvestorKycDocument("Identity", kyc?.GovernmentIdDocumentPathOrKey, kyc?.GovernmentIdVerifiedAt, !string.IsNullOrWhiteSpace(kyc?.GovernmentIdDocumentPathOrKey)),
+            new AdminInvestorKycDocument("ProofOfAddress", kyc?.ProofOfAddressDocumentPathOrKey, kyc?.ProofOfAddressVerifiedAt, !string.IsNullOrWhiteSpace(kyc?.ProofOfAddressDocumentPathOrKey)),
+            new AdminInvestorKycDocument("Selfie", kyc?.SelfieVerificationPathOrKey, kyc?.SelfieVerifiedAt, !string.IsNullOrWhiteSpace(kyc?.SelfieVerificationPathOrKey))
+        };
+        var checks = new[]
+        {
+            new AdminInvestorVerificationCheck("BVN Match", !string.IsNullOrWhiteSpace(kyc?.Bvn), kyc?.GovernmentIdVerifiedAt),
+            new AdminInvestorVerificationCheck("Identity Document", documents[0].Available, documents[0].VerifiedAt),
+            new AdminInvestorVerificationCheck("Proof of Address", documents[1].Available, documents[1].VerifiedAt),
+            new AdminInvestorVerificationCheck("Liveness Check", documents[2].Available, documents[2].VerifiedAt)
+        };
+        var isSuspended = user.AccountStatus == InvestorAccountStatus.Suspended;
+        var suspensionNote = isSuspended ? kyc?.ReviewNote : null;
+        var evidence = suspensionActions.Where(x => x.Action == "str" && !string.IsNullOrWhiteSpace(x.EvidenceJson)).SelectMany(x => { try { return JsonSerializer.Deserialize<List<UploadedEvidence>>(x.EvidenceJson!, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<UploadedEvidence>(); } catch (JsonException) { return new List<UploadedEvidence>(); } }).Select(x => x.Url).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+        var suspension = new AdminInvestorSuspensionReview(isSuspended, isSuspended ? user.UpdatedAt : null, suspensionNote ?? "Account activity requires compliance review.", suspensionNote ?? "The account is restricted while compliance review is in progress.", isSuspended ? new[] { "Account restricted pending compliance review" } : Array.Empty<string>(), suspensionActions.Where(x => x.Action is "note" or "contact" or "str").Select(x => x.Note).ToArray(), evidence, 0m, isSuspended, suspensionActions.Any(x => x.Action == "str"));
+        return new AdminInvestorDetail(id, $"INV-{id:0000}", user.FirstName, user.LastName, user.Email, user.CreatedAt, user.PhoneNumber, user.DateOfBirth, user.CountryOfResidence, user.StateOfResidence, user.ResidentialAddress, user.UserType, user.AccountStatus, kyc?.ReviewStatus ?? InvestorKycStatus.Pending, kyc?.ReviewNote, kyc?.ReviewedAt, wallet, holdings.Sum(x => x.Amount), holdings.Count, holdings.Sum(x => x.Returns), holdings, orders, new AdminInvestorKycReview(kyc?.Bvn, kyc?.Nin, documents, checks), suspension);
     }
+
+    private sealed record UploadedEvidence(string Url);
 
     public async Task<AdminInvestorDetail?> UpdateAsync(string investorId, AdminInvestorMutation mutation, string updatedBy, CancellationToken cancellationToken = default)
     {
@@ -50,6 +71,19 @@ public sealed class AdminInvestorsRepository(AntitalDBContext context) : IAdminI
         {
             kyc ??= new UserKyc { UserId = id };
             kyc.ReviewStatus = status; kyc.ReviewNote = mutation.Note; kyc.ReviewedAt = DateTime.UtcNow;
+            if (kyc.Id == 0) context.UserKycs.Add(kyc);
+        }
+        if (mutation.SuspensionAction is "note" or "contact" or "str")
+        {
+            if (!string.IsNullOrWhiteSpace(mutation.RequestId) && await context.AdminInvestorSuspensionActions.AnyAsync(x => x.UserId == id && !x.IsDeleted && x.RequestId == mutation.RequestId, cancellationToken))
+                return await GetAsync(investorId, cancellationToken);
+            var action = new AdminInvestorSuspensionAction { UserId = id, Action = mutation.SuspensionAction, Note = mutation.Note ?? string.Empty, EvidenceJson = mutation.EvidenceJson };
+            action.RequestId = mutation.RequestId;
+            action.Created(updatedBy);
+            context.AdminInvestorSuspensionActions.Add(action);
+            kyc ??= new UserKyc { UserId = id };
+            kyc.ReviewNote = mutation.Note;
+            kyc.ReviewedAt = DateTime.UtcNow;
             if (kyc.Id == 0) context.UserKycs.Add(kyc);
         }
         user.Updated(updatedBy); await context.SaveChangesAsync(cancellationToken); return await GetAsync(investorId, cancellationToken);
