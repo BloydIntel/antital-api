@@ -72,4 +72,30 @@ public class AdminController(IMediator mediator) : BaseController
         if (alert is null) return NotFound();
         return Ok(new { isSuccess = true, value = new { flagId = alert.PublicId, status = alert.Status.ToString(), assigneeUserId = alert.AssigneeUserId, resolutionNote = alert.ResolutionNote } });
     }
+
+    [HttpGet("investors")]
+    public async Task<IActionResult> GetInvestors([FromServices] IAdminInvestorsRepository repository, [FromQuery] string? status = null, [FromQuery] string? kycStatus = null, [FromQuery] bool? highNetWorth = null, [FromQuery] string? search = null, [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null, [FromQuery] string? sortBy = null, [FromQuery] bool descending = true, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+    {
+        if (page < 1 || pageSize is < 1 or > 100) return BadRequest(new { isSuccess = false, error = "Invalid pagination." });
+        var result = await repository.ListAsync(new AdminInvestorQueryOptions(status, kycStatus, highNetWorth, search, from, to, sortBy, descending, page, pageSize), cancellationToken);
+        return Ok(new { isSuccess = true, value = new { summary = new { totalInvestors = result.TotalInvestors, pendingKyc = result.PendingKyc, suspendedAccounts = result.SuspendedAccounts, totalWalletBalance = result.TotalWalletBalance }, items = result.Items, page, pageSize, totalCount = result.TotalCount, totalPages = (int)Math.Ceiling(result.TotalCount / (double)pageSize) } });
+    }
+
+    [HttpGet("investors/{investorId}")]
+    public async Task<IActionResult> GetInvestor(string investorId, [FromServices] IAdminInvestorsRepository repository, CancellationToken cancellationToken = default)
+    {
+        var result = await repository.GetAsync(investorId, cancellationToken);
+        return result is null ? NotFound() : Ok(new { isSuccess = true, value = result });
+    }
+
+    public sealed record UpdateInvestorRequest(string? KycStatus, string? Note, bool? Suspended);
+
+    [HttpPatch("investors/{investorId}")]
+    public async Task<IActionResult> UpdateInvestor(string investorId, [FromBody] UpdateInvestorRequest request, [FromServices] IAdminInvestorsRepository repository, CancellationToken cancellationToken = default)
+    {
+        if (request.KycStatus is not null && !Enum.TryParse<Antital.Domain.Enums.InvestorKycStatus>(request.KycStatus, true, out _)) return BadRequest(new { isSuccess = false, error = "Invalid KYC status." });
+        if (request.KycStatus is not null && string.IsNullOrWhiteSpace(request.Note)) return BadRequest(new { isSuccess = false, error = "A review note is required for KYC updates." });
+        var result = await repository.UpdateAsync(investorId, new AdminInvestorMutation(request.KycStatus, request.Note, request.Suspended), User.Identity?.Name ?? "admin", cancellationToken);
+        return result is null ? NotFound() : Ok(new { isSuccess = true, value = result });
+    }
 }

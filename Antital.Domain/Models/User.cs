@@ -10,6 +10,7 @@ public class User : TrackableEntity
     public string PasswordHash { get; set; } = string.Empty;
     public UserTypeEnum UserType { get; set; }
     public UserRoleEnum Role { get; set; } = UserRoleEnum.User;
+    public InvestorAccountStatus AccountStatus { get; set; } = InvestorAccountStatus.Active;
     public bool IsEmailVerified { get; set; } = false;
     [MaxLength(500)]
     public string? EmailVerificationToken { get; set; }
