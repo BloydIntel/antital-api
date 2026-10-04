@@ -36,7 +36,20 @@ public sealed class AdminInvestorsRepository(AntitalDBContext context) : IAdminI
         var wallet = await context.InvestorWallets.AsNoTracking().Where(x => x.UserId == id && !x.IsDeleted).Select(x => (decimal?)x.AvailableBalance).FirstOrDefaultAsync(cancellationToken) ?? 0;
         var holdings = await context.InvestorHoldings.AsNoTracking().Where(x => x.UserId == id && !x.IsDeleted).Include(x => x.Offering).OrderByDescending(x => x.CurrentValue).Select(x => new AdminInvestorHolding(x.Offering.Name, "Equity", x.InvestedAmount, x.CurrentValue, x.Returns, "Performing")).ToListAsync(cancellationToken);
         var orders = await context.InvestmentOrders.AsNoTracking().Where(x => x.UserId == id && !x.IsDeleted).OrderByDescending(x => x.CreatedAt).Take(20).Select(x => new AdminInvestorTransaction(x.Id, "Investment", x.TotalAmount, x.Currency, x.Status.ToString(), x.PaidAt ?? x.CreatedAt)).ToListAsync(cancellationToken);
-        return new AdminInvestorDetail(id, $"INV-{id:0000}", user.FirstName, user.LastName, user.Email, user.PhoneNumber, user.DateOfBirth, user.CountryOfResidence, user.StateOfResidence, user.ResidentialAddress, user.UserType, user.AccountStatus, kyc?.ReviewStatus ?? InvestorKycStatus.Pending, kyc?.ReviewNote, kyc?.ReviewedAt, wallet, holdings.Sum(x => x.Amount), holdings.Count, holdings.Sum(x => x.Returns), holdings, orders);
+        var documents = new[]
+        {
+            new AdminInvestorKycDocument("Identity", kyc?.GovernmentIdDocumentPathOrKey, kyc?.GovernmentIdVerifiedAt, !string.IsNullOrWhiteSpace(kyc?.GovernmentIdDocumentPathOrKey)),
+            new AdminInvestorKycDocument("ProofOfAddress", kyc?.ProofOfAddressDocumentPathOrKey, kyc?.ProofOfAddressVerifiedAt, !string.IsNullOrWhiteSpace(kyc?.ProofOfAddressDocumentPathOrKey)),
+            new AdminInvestorKycDocument("Selfie", kyc?.SelfieVerificationPathOrKey, kyc?.SelfieVerifiedAt, !string.IsNullOrWhiteSpace(kyc?.SelfieVerificationPathOrKey))
+        };
+        var checks = new[]
+        {
+            new AdminInvestorVerificationCheck("BVN Match", !string.IsNullOrWhiteSpace(kyc?.Bvn), kyc?.GovernmentIdVerifiedAt),
+            new AdminInvestorVerificationCheck("Identity Document", documents[0].Available, documents[0].VerifiedAt),
+            new AdminInvestorVerificationCheck("Proof of Address", documents[1].Available, documents[1].VerifiedAt),
+            new AdminInvestorVerificationCheck("Liveness Check", documents[2].Available, documents[2].VerifiedAt)
+        };
+        return new AdminInvestorDetail(id, $"INV-{id:0000}", user.FirstName, user.LastName, user.Email, user.CreatedAt, user.PhoneNumber, user.DateOfBirth, user.CountryOfResidence, user.StateOfResidence, user.ResidentialAddress, user.UserType, user.AccountStatus, kyc?.ReviewStatus ?? InvestorKycStatus.Pending, kyc?.ReviewNote, kyc?.ReviewedAt, wallet, holdings.Sum(x => x.Amount), holdings.Count, holdings.Sum(x => x.Returns), holdings, orders, new AdminInvestorKycReview(kyc?.Bvn, kyc?.Nin, documents, checks));
     }
 
     public async Task<AdminInvestorDetail?> UpdateAsync(string investorId, AdminInvestorMutation mutation, string updatedBy, CancellationToken cancellationToken = default)
