@@ -6,6 +6,8 @@ namespace Antital.Infrastructure.Repositories;
 
 public class AdminDashboardRepository(AntitalDBContext context) : IAdminDashboardRepository
 {
+    private const int MaxActivityEventsPerSource = 1000;
+
     public async Task<AdminInvestorMetrics> GetInvestorMetricsAsync(
         DateTime currentStartUtc,
         DateTime currentEndUtc,
@@ -192,5 +194,70 @@ public class AdminDashboardRepository(AntitalDBContext context) : IAdminDashboar
             .ThenByDescending(activity => activity.EntityId)
             .Take(limit)
             .ToList();
+    }
+
+    public async Task<AdminActivityLogResult> GetActivityLogsAsync(
+        AdminActivityLogQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        var events = await GetRecentEventsAsync(MaxActivityEventsPerSource, cancellationToken);
+        var mapped = events.Select(MapActivity).ToList();
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+            mapped = mapped.Where(item =>
+                item.Subject.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || item.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || item.EventType.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || item.Module.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        mapped = mapped
+            .Where(item => Matches(item.EventType, query.EventType)
+                && Matches(item.Module, query.Module)
+                && Matches(item.Priority, query.Priority)
+                && Matches(item.Status, query.Status))
+            .OrderByDescending(item => item.OccurredAtUtc)
+            .ThenBy(item => item.Id)
+            .ToList();
+
+        var counts = mapped
+            .GroupBy(item => item.EventType)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+        var items = mapped
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToList();
+
+        return new AdminActivityLogResult(items, mapped.Count, counts);
+    }
+
+    private static bool Matches(string value, string? filter) =>
+        string.IsNullOrWhiteSpace(filter)
+        || value.Equals(filter.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private static AdminActivityLogItem MapActivity(AdminDashboardEvent activity)
+    {
+        return activity.Kind switch
+        {
+            AdminDashboardEventKind.InvestorRegistered => new(
+                $"investor-{activity.EntityId}", activity.Kind, activity.Subject,
+                $"Investor {activity.Subject} registered", activity.OccurredAtUtc,
+                "Investment", "Investor Management", "Low", "Completed"),
+            AdminDashboardEventKind.OnboardingSubmitted => new(
+                $"onboarding-{activity.EntityId}", activity.Kind, activity.Subject,
+                $"KYC review submitted for {activity.Subject}", activity.OccurredAtUtc,
+                "Compliance", "Compliance", "Medium", "Pending Review"),
+            AdminDashboardEventKind.CampaignPublished => new(
+                $"campaign-{activity.EntityId}", activity.Kind, activity.Subject,
+                $"Campaign {activity.Subject} was published", activity.OccurredAtUtc,
+                "Fundraising", "Fundraiser Management", "Low", "Completed"),
+            AdminDashboardEventKind.InvestmentCompleted => new(
+                $"investment-{activity.EntityId}", activity.Kind, activity.Subject,
+                $"Investment completed for {activity.Subject}", activity.OccurredAtUtc,
+                "Investment", "Financial Operations", "Low", "Completed"),
+            _ => throw new ArgumentOutOfRangeException(nameof(activity.Kind), activity.Kind, null)
+        };
     }
 }
