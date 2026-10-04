@@ -11,6 +11,10 @@ public class UserKyc : TrackableEntity
 {
     public int UserId { get; set; }
     public KycIdType IdType { get; set; }
+    public InvestorKycStatus ReviewStatus { get; set; } = InvestorKycStatus.Pending;
+    [MaxLength(1000)]
+    public string? ReviewNote { get; set; }
+    public DateTime? ReviewedAt { get; set; }
 
     [MaxLength(50)]
     public string? Nin { get; set; }
