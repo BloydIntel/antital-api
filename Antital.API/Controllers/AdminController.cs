@@ -1,6 +1,8 @@
 using Antital.Application.DTOs.Admin;
 using Antital.Application.Features.Admin.GetAdminDashboard;
 using Antital.Application.Features.Admin.GetAdminActivityLogs;
+using Antital.Application.Features.Admin.GetAdminAlerts;
+using Antital.Domain.Interfaces;
 using BuildingBlocks.API.Controllers;
 using BuildingBlocks.Application.Features;
 using MediatR;
@@ -42,5 +44,32 @@ public class AdminController(IMediator mediator) : BaseController
     {
         var result = await mediator.Send(request, cancellationToken);
         return ApiResult(result);
+    }
+
+    [HttpGet("flags-and-alerts")]
+    [SwaggerOperation("Get Admin Flags and Alerts", "Returns filtered, paginated platform alerts for administrators.")]
+    public async Task<IActionResult> GetFlagsAndAlerts(
+        [FromQuery] GetAdminAlertsQuery request,
+        CancellationToken cancellationToken = default) =>
+        ApiResult(await mediator.Send(request, cancellationToken));
+
+    [HttpGet("flags-and-alerts/{flagId}")]
+    public async Task<IActionResult> GetFlag(string flagId, [FromServices] IAdminAlertsRepository repository, CancellationToken cancellationToken = default)
+    {
+        var alert = await repository.GetByPublicIdAsync(flagId, cancellationToken);
+        if (alert is null) return NotFound();
+        return Ok(new { isSuccess = true, value = new { id = alert.Id, flagId = alert.PublicId, alert.Type, severity = alert.Severity.ToString().ToUpperInvariant(), status = alert.Status.ToString(), entityAffected = alert.EntityAffected, alert.Description, occurredAtUtc = alert.OccurredAtUtc } });
+    }
+
+    public sealed record UpdateFlagRequest(string? Status, int? AssigneeUserId, string? ResolutionNote);
+
+    [HttpPatch("flags-and-alerts/{flagId}")]
+    public async Task<IActionResult> UpdateFlag(string flagId, [FromBody] UpdateFlagRequest request, [FromServices] IAdminAlertsRepository repository, CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Status) && !Enum.TryParse<Antital.Domain.Enums.AlertStatus>(request.Status, true, out _))
+            return BadRequest(new { isSuccess = false, error = "Invalid alert status." });
+        var alert = await repository.UpdateAsync(flagId, new AdminAlertUpdate(request.Status, request.AssigneeUserId, request.ResolutionNote), User.Identity?.Name ?? "admin", cancellationToken);
+        if (alert is null) return NotFound();
+        return Ok(new { isSuccess = true, value = new { flagId = alert.PublicId, status = alert.Status.ToString(), assigneeUserId = alert.AssigneeUserId, resolutionNote = alert.ResolutionNote } });
     }
 }
