@@ -40,6 +40,7 @@ public class AntitalDBContext(
     public DbSet<FundraiserNotificationPreferences> FundraiserNotificationPreferences { get; set; }
     public DbSet<ExternalProviderCheck> ExternalProviderChecks { get; set; }
     public DbSet<PlatformAlert> PlatformAlerts { get; set; }
+    public DbSet<AdminInvestorSuspensionAction> AdminInvestorSuspensionActions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -47,6 +47,34 @@ public sealed class AdminInvestorsRepositoryTests : IDisposable
         updated.KycReviewNote.Should().Be("Reviewed");
     }
 
+    [Fact]
+    public async Task UpdateAsync_SuspensionActionPersistsReviewHistoryAndEvidence()
+    {
+        var user = AddUser("suspended-action@example.com", InvestorAccountStatus.Suspended);
+        await _context.SaveChangesAsync();
+
+        var updated = await _repository.UpdateAsync($"INV-{user.Id:0000}", new AdminInvestorMutation(null, "Submitted suspicious transaction report", true, "str", "request-1", "[{\"url\":\"evidence.pdf\"}]"), "admin");
+
+        updated.Should().NotBeNull();
+        updated!.SuspensionReview.StrFiled.Should().BeTrue();
+        updated.SuspensionReview.Evidence.Should().Contain("evidence.pdf");
+        _context.AdminInvestorSuspensionActions.Should().ContainSingle(x => x.RequestId == "request-1" && x.Action == "str");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithDuplicateRequestId_IsIdempotent()
+    {
+        var user = AddUser("idempotent-action@example.com", InvestorAccountStatus.Suspended);
+        await _context.SaveChangesAsync();
+        var mutation = new AdminInvestorMutation(null, "Contacted investor", true, "contact", "request-duplicate");
+
+        await _repository.UpdateAsync($"INV-{user.Id:0000}", mutation, "admin");
+        var updated = await _repository.UpdateAsync($"INV-{user.Id:0000}", mutation, "admin");
+
+        updated.Should().NotBeNull();
+        _context.AdminInvestorSuspensionActions.Count(x => x.RequestId == "request-duplicate").Should().Be(1);
+    }
+
     private User AddUser(string email, InvestorAccountStatus status)
     {
         var user = new User { Email = email, PasswordHash = "test", UserType = UserTypeEnum.IndividualInvestor, FirstName = "Test", LastName = "Investor", PhoneNumber = "123", DateOfBirth = new DateTime(1990, 1, 1), CountryOfResidence = "Nigeria", StateOfResidence = "Lagos", Nationality = "Nigerian", ResidentialAddress = "Address", AccountStatus = status };
